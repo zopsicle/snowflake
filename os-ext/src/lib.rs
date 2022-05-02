@@ -29,13 +29,14 @@
 #![warn(missing_docs)]
 
 pub use {
-    self::{fcntl::*, sys_stat::*},
-    libc::{O_DIRECTORY, O_PATH},
+    self::{fcntl::*, stdlib::*, sys_stat::*},
+    libc::{O_CREAT, O_DIRECTORY, O_PATH, O_WRONLY},
 };
 
 use std::io::{self, ErrorKind::Interrupted};
 
 mod fcntl;
+mod stdlib;
 mod sys_stat;
 
 /// Call `f` until it no longer fails with `EINTR`.

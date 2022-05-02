@@ -124,3 +124,43 @@ fn ok_if_already_exists(err: io::Error) -> io::Result<()>
         Err(err)
     }
 }
+
+#[cfg(test)]
+mod tests
+{
+    use {
+        super::*,
+        os_ext::{O_CREAT, O_WRONLY, mkdtemp},
+        scope_exit::scope_exit,
+        std::{fs::{read_link, remove_dir_all}, os::unix::io::AsRawFd},
+    };
+
+    #[test]
+    fn new_scratch_dir()
+    {
+        // Create state directory.
+        let path = mkdtemp("/tmp/snowflake-test-XXXXXX").unwrap();
+        scope_exit! { let _ = remove_dir_all(&path); }
+
+        // Create two scratch directories.
+        let state = State::open(&path).unwrap();
+        let scratch_dir_0 = state.new_scratch_dir().unwrap();
+        let scratch_dir_1 = state.new_scratch_dir().unwrap();
+
+        // Test paths to the scratch directories.
+        let magic_link_0 = format!("/proc/self/fd/{}", scratch_dir_0.as_raw_fd());
+        let magic_link_1 = format!("/proc/self/fd/{}", scratch_dir_1.as_raw_fd());
+        let scratch_dir_path_0 = read_link(magic_link_0).unwrap();
+        let scratch_dir_path_1 = read_link(magic_link_1).unwrap();
+        assert_eq!(scratch_dir_path_0, path.join("scratches/0"));
+        assert_eq!(scratch_dir_path_1, path.join("scratches/1"));
+
+        // Test that scratch directory is writable.
+        openat(
+            Some(scratch_dir_0.as_fd()),
+            "build.log",
+            O_CREAT | O_WRONLY,
+            0o644,
+        ).unwrap();
+    }
+}

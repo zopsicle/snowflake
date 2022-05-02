@@ -16,8 +16,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "scope-exit"
+version = "0.0.0"
+
+[[package]]
 name = "snowflake"
 version = "0.0.0"
 dependencies = [
  "os-ext",
+ "scope-exit",
 ]

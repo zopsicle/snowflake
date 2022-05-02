@@ -5,3 +5,6 @@ edition = "2021"
 
 [dependencies.os-ext]
 path = "../os-ext"
+
+[dev-dependencies.scope-exit]
+path = "../scope-exit"
