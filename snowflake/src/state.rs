@@ -130,9 +130,9 @@ mod tests
 {
     use {
         super::*,
-        os_ext::{O_CREAT, O_WRONLY, mkdtemp},
+        os_ext::{O_CREAT, O_WRONLY, mkdtemp, readlink},
         scope_exit::scope_exit,
-        std::{fs::{read_link, remove_dir_all}, os::unix::io::AsRawFd},
+        std::{fs::remove_dir_all, os::unix::io::AsRawFd},
     };
 
     #[test]
@@ -150,8 +150,8 @@ mod tests
         // Test paths to the scratch directories.
         let magic_link_0 = format!("/proc/self/fd/{}", scratch_dir_0.as_raw_fd());
         let magic_link_1 = format!("/proc/self/fd/{}", scratch_dir_1.as_raw_fd());
-        let scratch_dir_path_0 = read_link(magic_link_0).unwrap();
-        let scratch_dir_path_1 = read_link(magic_link_1).unwrap();
+        let scratch_dir_path_0 = readlink(magic_link_0).unwrap();
+        let scratch_dir_path_1 = readlink(magic_link_1).unwrap();
         assert_eq!(scratch_dir_path_0, path.join("scratches/0"));
         assert_eq!(scratch_dir_path_1, path.join("scratches/1"));
 

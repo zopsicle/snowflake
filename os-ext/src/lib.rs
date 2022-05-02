@@ -31,15 +31,25 @@
 #![warn(missing_docs)]
 
 pub use {
-    self::{fcntl::*, stdlib::*, sys_stat::*},
-    libc::{O_CREAT, O_DIRECTORY, O_PATH, O_WRONLY},
+    self::{dirent_::*, fcntl::*, stdlib::*, sys_stat::*, unistd::*},
+    libc::{
+        AT_SYMLINK_NOFOLLOW,
+        O_CREAT, O_DIRECTORY, O_NOFOLLOW, O_PATH, O_RDONLY, O_WRONLY,
+        S_IFDIR, S_IFLNK, S_IFMT, S_IFREG,
+    },
 };
 
 use std::io::{self, ErrorKind::Interrupted};
 
+mod dirent_;
 mod fcntl;
 mod stdlib;
 mod sys_stat;
+mod unistd;
+
+// Cannot `pub use` as that would also export the stat function.
+#[allow(missing_docs, non_camel_case_types)]
+pub type stat = libc::stat;
 
 /// Call `f` until it no longer fails with `EINTR`.
 fn retry_on_eintr<F, T>(mut f: F) -> io::Result<T>
