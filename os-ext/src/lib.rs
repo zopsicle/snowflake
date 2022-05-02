@@ -14,6 +14,8 @@
 //!
 //! Regular string arguments are accepted instead of NUL-terminated strings.
 //! They are automatically made NUL-terminated by the wrapper functions.
+//! If an interior NUL is found within the string,
+//! the wrapper function fails with `EINVAL`.
 //!
 //! When a new file descriptor is created by one of the functions,
 //! it is created with the `FD_CLOEXEC` bit set (atomically).
