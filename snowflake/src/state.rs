@@ -64,7 +64,7 @@ impl State
     /// The scratches directory contains scratch directories.
     /// Scratch directories are temporary directories used during builds.
     /// Scratch directories do not survive restarts of the build system.
-    pub fn scratches_dir(&self) -> io::Result<BorrowedFd>
+    fn scratches_dir(&self) -> io::Result<BorrowedFd>
     {
         self.ensure_open_dir_once(&self.scratches_dir, SCRATCHES_DIR)
     }
@@ -83,8 +83,9 @@ impl State
     /// Handle to the cached actions directory.
     ///
     /// The cached actions directory maps each action to its outputs.
-    pub fn cached_actions_dir(&self) -> io::Result<BorrowedFd>
+    fn cached_actions_dir(&self) -> io::Result<BorrowedFd>
     {
+        #![allow(unused)]  // TODO: Use this somewhere.
         self.ensure_open_dir_once(&self.cached_actions_dir, CACHED_ACTIONS_DIR)
     }
 
@@ -92,8 +93,9 @@ impl State
     ///
     /// The cached outputs directory stores each output
     /// using a content-addressable naming scheme.
-    pub fn cached_outputs_dir(&self) -> io::Result<BorrowedFd>
+    fn cached_outputs_dir(&self) -> io::Result<BorrowedFd>
     {
+        #![allow(unused)]  // TODO: Use this somewhere.
         self.ensure_open_dir_once(&self.cached_outputs_dir, CACHED_OUTPUTS_DIR)
     }
 
