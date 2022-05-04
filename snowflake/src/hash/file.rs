@@ -3,7 +3,7 @@ use {
     os_ext::{
         AT_SYMLINK_NOFOLLOW,
         O_DIRECTORY, O_NOFOLLOW, O_RDONLY,
-        S_IFDIR, S_IFLNK, S_IFMT, S_IFREG,
+        S_IFDIR, S_IFLNK, S_IFMT, S_IFREG, S_IXUSR,
         fdopendir,
         fstatat,
         openat,
@@ -23,15 +23,30 @@ use {
 ///
 /// The file may either be a regular file, a symbolic link,
 /// or a directory containing only such eligible files.
-/// For regular files, the hash contains the permission bits and contents.
-/// For directories, the hash contains the permission bits and entries.
-/// This function descends into directories; its entries are also hashed.
-/// For symbolic links, the hash contains the target.
-///
 /// If a file is encountered that is inaccessible or of unsupported type
 /// this function returns an error and the file cannot be hashed.
-/// Note that the permission bits must at least permit the caller
-/// to open the file (for regular files) or list the entries (for directories).
+///
+/// # Contents of the hash
+///
+/// The path of the file is not included in the hash.
+/// That is, `hash_file_at(dirfd, "foo")` and `hash_file_at(dirfd, "bar")`
+/// will return the same hash if the files are otherwise the same.
+///
+/// If the file is a regular file, the hash contains
+/// its contents and whether it is executable.
+/// If the file is a directory, the hash contains
+/// recursively the entries of the directory,
+/// including the names of the entries.
+/// If the file is a symbolic link, the hash contains
+/// the target name of the symbolic link (it is not followed).
+///
+/// Inode, mode, owner, dates, etc are not included in the hash.
+/// They are assumed to be uninteresting to any actions or artifact consumers.
+/// The read permission bit is ignored as unreadable files cannot be hashed.
+/// The write permission bit is ignored as inputs are mounted read-only,
+/// and outputs are made read-only before being added to the output cache.
+/// The execute permission bit is ignored for directories
+/// as non-executable directories cannot be hashed.
 pub fn hash_file_at<P>(dirfd: Option<BorrowedFd>, path: P)
     -> io::Result<Hash>
     where P: AsRef<Path>
@@ -59,7 +74,7 @@ fn write_file_at(
     let statbuf = fstatat(dirfd, path, AT_SYMLINK_NOFOLLOW)?;
     match statbuf.st_mode & S_IFMT {
         S_IFREG => write_reg_at(writer, dirfd, path, &statbuf),
-        S_IFDIR => write_dir_at(writer, dirfd, path, &statbuf),
+        S_IFDIR => write_dir_at(writer, dirfd, path),
         S_IFLNK => write_lnk_at(writer, dirfd, path),
         _       => todo!("Return error about unsupported file type"),
     }
@@ -81,8 +96,9 @@ fn write_reg_at(
     // Write file type.
     writer.write_all(&[FILE_TYPE_REG])?;
 
-    // Write file permissions.
-    writer.write_all(&(statbuf.st_mode as u16 & 0o777).to_le_bytes())?;
+    // Write whether file is executable.
+    let executable = statbuf.st_mode & S_IXUSR != 0;
+    writer.write_all(&[executable as u8])?;
 
     // Write file size.
     writer.write_all(&(statbuf.st_size as u64).to_le_bytes())?;
@@ -100,14 +116,10 @@ fn write_dir_at(
     writer:  &mut impl Write,
     dirfd:   Option<BorrowedFd>,
     path:    &Path,
-    statbuf: &stat,
 ) -> io::Result<()>
 {
     // Write directory metadata.
     writer.write_all(&[FILE_TYPE_DIR])?;
-
-    // Write file permissions.
-    writer.write_all(&(statbuf.st_mode as u16 & 0o777).to_le_bytes())?;
 
     // Open directory for reading.
     let dir = openat(dirfd, path, O_DIRECTORY | O_NOFOLLOW | O_RDONLY, 0)?;
@@ -175,22 +187,22 @@ mod tests
     fn example()
     {
         let expected = &[
-            1, 237, 1,
+            1,
                 b'b', b'r', b'o', b'k', b'e', b'n', b'.', b'l', b'n', b'k', 0,
                     2, b'e', b'n', b'o', b'e', b'n', b't', b'.', b't', b'x', b't', 0,
                 b'd', b'i', b'r', b'e', b'c', b't', b'o', b'r', b'y', 0,
-                    1, 237, 1,
+                    1,
                         b'b', b'a', b'r', b'.', b't', b'x', b't', 0,
-                            0, 164, 1,
+                            0, 1,
                                 4, 0, 0, 0, 0, 0, 0, 0,
                                 b'b', b'a', b'r', b'\n',
                         b'f', b'o', b'o', b'.', b't', b'x', b't', 0,
-                            0, 164, 1,
+                            0, 0,
                                 4, 0, 0, 0, 0, 0, 0, 0,
                                 b'f', b'o', b'o', b'\n',
                         0,
                 b'r', b'e', b'g', b'u', b'l', b'a', b'r', b'.', b't', b'x', b't', 0,
-                    0, 164, 1,
+                    0, 0,
                         14, 0, 0, 0, 0, 0, 0, 0,
                         b'H', b'e', b'l', b'l', b'o', b',', b' ',
                         b'w', b'o', b'r', b'l', b'd', b'!', b'\n',
