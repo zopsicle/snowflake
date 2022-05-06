@@ -1,0 +1,13 @@
+[package]
+name = "icicle-core"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies.num-bigint]
+version = "~0.4.3"
+
+[dependencies.thiserror]
+version = "^1.0.31"
+
+[dev-dependencies.proptest]
+version = "^1.0.0"

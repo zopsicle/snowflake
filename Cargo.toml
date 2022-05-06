@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "icicle-core",
     "os-ext",
     "scope-exit",
     "snowflake",
