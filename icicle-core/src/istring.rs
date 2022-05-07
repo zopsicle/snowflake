@@ -61,6 +61,16 @@ impl IString
         unsafe { self.bytes.get_unchecked_mut(len - 2 .. len).reverse() };
     }
 
+    /// Append a char to the string.
+    ///
+    /// The char will be UTF-8 encoded.
+    pub fn push_char(&mut self, value: char)
+    {
+        for byte in value.encode_utf8(&mut [0; 4]).bytes() {
+            self.push(byte);
+        }
+    }
+
     /// Convert the string into a C string.
     ///
     /// If the string contains interior nuls, this method returns an error.

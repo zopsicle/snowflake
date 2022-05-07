@@ -1,0 +1,30 @@
+Ok(
+    [
+        Lexeme {
+            location: Location(0),
+            token: StringLiteral(
+                "foo",
+            ),
+        },
+        Lexeme {
+            location: Location(6),
+            token: Tilde,
+        },
+        Lexeme {
+            location: Location(8),
+            token: StringLiteral(
+                "bar",
+            ),
+        },
+        Lexeme {
+            location: Location(14),
+            token: Tilde,
+        },
+        Lexeme {
+            location: Location(16),
+            token: StringLiteral(
+                "baz",
+            ),
+        },
+    ],
+)

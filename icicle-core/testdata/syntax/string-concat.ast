@@ -1,0 +1,20 @@
+Ok(
+    StringConcatenate {
+        left: StringConcatenate {
+            left: StringLiteral {
+                location: Location(0),
+                value: "foo",
+            },
+            tilde: Location(6),
+            right: StringLiteral {
+                location: Location(8),
+                value: "bar",
+            },
+        },
+        tilde: Location(14),
+        right: StringLiteral {
+            location: Location(16),
+            value: "baz",
+        },
+    },
+)
