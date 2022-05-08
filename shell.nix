@@ -16,4 +16,10 @@ in
             rustChannel.rust
         ];
 
+        # Flags for rustdoc.
+        RUSTDOCFLAGS = [
+            # Include the memory layout of types in the docs.
+            "-Z" "unstable-options" "--show-type-layout"
+        ];
+
     }
