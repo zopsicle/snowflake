@@ -5,21 +5,26 @@ pub mod verify;
 mod display;
 
 /// Sequence of instructions.
+#[derive(Debug)]
 pub struct Procedure
 {
     /// The register with the highest number
     /// used by any of the instructions.
-    pub max_register: Register,
+    ///
+    /// If no registers are used, this is [`None`].
+    pub max_register: Option<Register>,
 
     /// The instructions to execute.
     pub instructions: Vec<Instruction>,
 }
 
 /// Identifies a register.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Register(u16);
 
 /// Instruction for the interpreter.
 #[allow(missing_docs)]
+#[derive(Debug)]
 pub enum Instruction
 {
     /// Copy a value from one register into another.
@@ -54,6 +59,55 @@ pub enum Instruction
     Return{
         value: Register,
     },
+}
+
+impl Instruction
+{
+    /// Whether the instruction is a terminator.
+    ///
+    /// A terminator unconditionally transfers control;
+    /// it never continues to the subsequent instruction
+    /// (except if it's a jump equivalent to a no-op).
+    pub fn is_terminator(&self) -> bool
+    {
+        match self {
+            // Terminators.
+            Self::Return{..} => true,
+
+            // Non-terminators.
+            Self::CopyRegister{..}      => false,
+            Self::CopyConstant{..}      => false,
+            Self::NumericAdd{..}        => false,
+            Self::StringConcatenate{..} => false,
+        }
+    }
+
+    /// The registers used by the instruction.
+    ///
+    /// The returned iterator yields the registers in arbitrary order.
+    /// It yields the same register multiple times
+    /// if it appears multiple times in the instruction.
+    pub fn registers(&self) -> impl Iterator<Item=Register>
+    {
+        macro_rules! chain
+        {
+            ($sub:expr $(, $subs:expr)* $(,)?) => {
+                IntoIterator::into_iter($sub)$(.chain($subs))*
+            };
+        }
+        match self {
+            Self::CopyRegister{target, source} =>
+                chain!(Some(*target), Some(*source), None),
+            Self::CopyConstant{target, source: _} =>
+                chain!(Some(*target), None, None),
+            Self::NumericAdd{target, left, right} =>
+                chain!(Some(*target), Some(*left), Some(*right)),
+            Self::StringConcatenate{target, left, right} =>
+                chain!(Some(*target), Some(*left), Some(*right)),
+            Self::Return{value} =>
+                chain!(Some(*value), None, None),
+        }
+    }
 }
 
 // TODO: Move this out of the bytecode module.
