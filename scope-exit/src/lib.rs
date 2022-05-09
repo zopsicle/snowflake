@@ -4,7 +4,12 @@
 
 use std::mem::ManuallyDrop;
 
-#[doc(hidden)]
+/// Non-macro form of [`scope_exit`].
+///
+/// This is useful if you want to [`forget`] the scope guard at some point,
+/// or otherwise use the scope guard as an object.
+///
+/// [`forget`]: `std::mem::forget`.
 pub struct ScopeExit<F>
     where F: FnOnce()
 {
@@ -14,6 +19,7 @@ pub struct ScopeExit<F>
 impl<F> ScopeExit<F>
     where F: FnOnce()
 {
+    /// Create a scope guard that calls a given function on drop.
     pub fn new(f: F) -> Self
     {
         Self{f: ManuallyDrop::new(f)}

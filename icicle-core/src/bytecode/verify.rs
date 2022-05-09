@@ -132,7 +132,7 @@ mod tests
             max_register: Some(R(2)),
             instructions: vec![
                 I::CopyRegister      {target: R(1), source: R(0)},
-                I::CopyConstant      {target: R(2), source: Value{_todo: !0}},
+                I::CopyConstant      {target: R(2), source: Value::undef()},
                 I::NumericAdd        {target: R(0), left: R(1), right: R(2)},
                 I::StringConcatenate {target: R(0), left: R(0), right: R(1)},
                 I::Return            {value: R(0)},
@@ -173,7 +173,7 @@ mod tests
         let procedure = Procedure{
             max_register: None,
             instructions: vec![
-                I::CopyConstant {target: R(0), source: Value{_todo: 0}},
+                I::CopyConstant {target: R(0), source: Value::undef()},
                 I::Return       {value: R(0)},
             ],
         };

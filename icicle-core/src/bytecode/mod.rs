@@ -1,5 +1,7 @@
 //! Working with bytecode instructions.
 
+use crate::value::Value;
+
 pub mod verify;
 
 mod display;
@@ -108,14 +110,6 @@ impl Instruction
                 chain!(Some(*value), None, None),
         }
     }
-}
-
-// TODO: Move this out of the bytecode module.
-#[derive(Debug)]
-pub struct Value
-{
-    // TODO: Pointer to reference-counted value.
-    _todo: usize,
 }
 
 #[cfg(test)]

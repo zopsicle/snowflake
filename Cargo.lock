@@ -82,11 +82,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "gmp-sys"
+version = "0.0.0"
+
+[[package]]
 name = "icicle-core"
 version = "0.0.0"
 dependencies = [
- "num-bigint",
+ "gmp-sys",
+ "libc",
  "proptest",
+ "scope-exit",
  "thiserror",
  "typed-arena",
 ]
@@ -111,27 +117,6 @@ name = "libc"
 version = "0.2.125"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5916d2ae698f6de9bfb891ad7a8d65c09d232dc58cc4ac433c7da3b2fd84bc2b"
-
-[[package]]
-name = "num-bigint"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f93ab6289c7b344a8a9f60f88d80aa20032336fe78da341afc91c8a2341fc75f"
-dependencies = [
- "autocfg",
- "num-integer",
- "num-traits",
-]
-
-[[package]]
-name = "num-integer"
-version = "0.1.45"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "225d3389fb3509a24c93f5c29eb6bde2586b98d9f016636dff58d7c6f7569cd9"
-dependencies = [
- "autocfg",
- "num-traits",
-]
 
 [[package]]
 name = "num-traits"

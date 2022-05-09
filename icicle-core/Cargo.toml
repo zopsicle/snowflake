@@ -3,8 +3,14 @@ name = "icicle-core"
 version = "0.0.0"
 edition = "2021"
 
-[dependencies.num-bigint]
-version = "~0.4.3"
+[dependencies.gmp-sys]
+path = "../gmp-sys"
+
+[dependencies.libc]
+version = "~0.2.125"
+
+[dependencies.scope-exit]
+path = "../scope-exit"
 
 [dependencies.thiserror]
 version = "^1.0.31"
