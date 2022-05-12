@@ -1,7 +1,5 @@
 //! Working with bytecode instructions.
 
-use crate::value::Value;
-
 pub mod verify;
 
 mod display;
@@ -38,7 +36,7 @@ pub enum Instruction
     /// Copy a constant value into a register.
     CopyConstant{
         target: Register,
-        source: Value,
+        source: /* TODO: Value */ usize,
     },
 
     /// Coerce left and right to numeric values,

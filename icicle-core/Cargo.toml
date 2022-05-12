@@ -9,6 +9,9 @@ path = "../gmp-sys"
 [dependencies.libc]
 version = "~0.2.125"
 
+[dependencies.non-zero-ext]
+path = "../non-zero-ext"
+
 [dependencies.scope-exit]
 path = "../scope-exit"
 

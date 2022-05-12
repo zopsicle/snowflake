@@ -2,6 +2,7 @@
 members = [
     "gmp-sys",
     "icicle-core",
+    "non-zero-ext",
     "os-ext",
     "scope-exit",
     "snowflake",

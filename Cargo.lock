@@ -91,6 +91,7 @@ version = "0.0.0"
 dependencies = [
  "gmp-sys",
  "libc",
+ "non-zero-ext",
  "proptest",
  "scope-exit",
  "thiserror",
@@ -117,6 +118,10 @@ name = "libc"
 version = "0.2.125"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5916d2ae698f6de9bfb891ad7a8d65c09d232dc58cc4ac433c7da3b2fd84bc2b"
+
+[[package]]
+name = "non-zero-ext"
+version = "0.0.0"
 
 [[package]]
 name = "num-traits"

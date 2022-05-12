@@ -120,7 +120,7 @@ impl fmt::Display for Verified
 #[cfg(test)]
 mod tests
 {
-    use {super::{*, super::Value}, std::assert_matches::assert_matches};
+    use {super::*, std::assert_matches::assert_matches};
 
     use Instruction as I;
     use Register as R;
@@ -132,7 +132,7 @@ mod tests
             max_register: Some(R(2)),
             instructions: vec![
                 I::CopyRegister      {target: R(1), source: R(0)},
-                I::CopyConstant      {target: R(2), source: Value::undef()},
+                I::CopyConstant      {target: R(2), source: 0},
                 I::NumericAdd        {target: R(0), left: R(1), right: R(2)},
                 I::StringConcatenate {target: R(0), left: R(0), right: R(1)},
                 I::Return            {value: R(0)},
@@ -173,7 +173,7 @@ mod tests
         let procedure = Procedure{
             max_register: None,
             instructions: vec![
-                I::CopyConstant {target: R(0), source: Value::undef()},
+                I::CopyConstant {target: R(0), source: 0},
                 I::Return       {value: R(0)},
             ],
         };
