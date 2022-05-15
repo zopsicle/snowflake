@@ -149,7 +149,7 @@ impl String
     {
         // SAFETY: len corresponds to the number of bytes.
         let bytes = unsafe {
-            slice::from_raw_parts(self.bytes.as_ptr(), self.len)
+            slice::from_raw_parts(self.bytes.as_ptr(), self.len + 1)
         };
 
         // SAFETY: We write the terminating nul during construction.

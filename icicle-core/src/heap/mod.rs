@@ -406,7 +406,7 @@ impl<'h> Mutator<'h>
     /// [`with_stack_roots`]: `Self::with_stack_roots`
     pub fn with_pinned_stack_root<R>(
         &self,
-        object: impl BorrowRef<'h>,
+        object: &impl BorrowRef<'h>,
         f: impl FnOnce(&PinnedStackRoot<'h>) -> R,
     ) -> R
     {

@@ -50,3 +50,93 @@ pub enum Kind
     Boolean,
     String,
 }
+
+#[cfg(test)]
+mod tests
+{
+    use {
+        crate::istring::IString,
+        super::{*, super::{BorrowRef, Heap, Mutator, PinnedRef, StackRoot}},
+        proptest::{self as p, proptest, strategy::Strategy},
+    };
+
+    /// Owned counterpart to [`View`].
+    #[derive(Debug)]
+    enum Template
+    {
+        Undef,
+        Boolean(bool),
+        String(IString),
+    }
+
+    impl Template
+    {
+        /// Generate arbitrary templates.
+        fn arbitrary() -> impl Strategy<Value=Template>
+        {
+            p::prop_oneof![
+                1  => p::strategy::LazyJust::new(|| Self::Undef),
+                5  => p::arbitrary::any::<bool>()
+                    .prop_map(Self::Boolean),
+                10 => p::arbitrary::any::<Vec<u8>>()
+                    .prop_map(IString::from_bytes)
+                    .prop_map(Self::String),
+            ]
+        }
+
+        /// Create a new object from the template.
+        fn new<'h>(&self, mutator: &Mutator<'h>, root: &StackRoot<'h>)
+        {
+            match self {
+                Self::Undef =>
+                    Undef::new(mutator, root),
+                Self::Boolean(value) =>
+                    Boolean::new_from_bool(mutator, root, *value),
+                Self::String(bytes) =>
+                    String::new_from_bytes(mutator, root, bytes.as_bytes()),
+            }
+        }
+
+        /// Assert that an object matches the template.
+        fn assert<'h>(&self, object: &impl PinnedRef<'h>)
+        {
+            let view = object.view();
+            let ok = match (self, view) {
+                (Self::Undef,       View::Undef      ) => true,
+                (Self::Boolean(v1), View::Boolean(v2)) => *v1 == v2,
+                (Self::String(b1),  View::String(b2) ) => b1 == b2,
+                _ => false,
+            };
+            assert!(ok, "assertion failed:\n\
+                         template: `{self:?}`,\n    \
+                         view: `{view:?}`");
+        }
+    }
+
+    proptest!
+    {
+        /// Allocate a bunch of objects and test that they roundtrip.
+        #[test]
+        fn roundtrip(
+            templates in p::collection::vec(
+                Template::arbitrary(),
+                0 ..= 100,
+            ),
+        )
+        {
+            Heap::with(|heap| {
+                let mutator = Mutator::new(heap);
+                let mut cases = Vec::new();
+                mutator.with_stack_roots(|[root]| {
+                    for template in templates {
+                        template.new(&mutator, root);
+                        cases.push((template, root.pin()));
+                    }
+                });
+                for (template, root) in cases {
+                    template.assert(&root);
+                }
+            });
+        }
+    }
+}

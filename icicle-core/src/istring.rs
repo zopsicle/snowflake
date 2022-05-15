@@ -30,6 +30,7 @@ macro_rules! istr
 }
 
 /// Owned, nul-terminated string, possibly with interior nuls.
+#[derive(Eq)]
 pub struct IString
 {
     // INVARIANT: Nul-terminated.
@@ -37,6 +38,7 @@ pub struct IString
 }
 
 /// Borrowed, nul-terminated string, possibly with interior nuls.
+#[derive(Eq)]
 #[repr(transparent)]
 pub struct IStr
 {
@@ -50,6 +52,16 @@ impl IString
     pub fn new() -> Self
     {
         Self{bytes: vec![0]}
+    }
+
+    /// Create a string from a byte vec.
+    ///
+    /// The terminating nul will be added by this method.
+    /// The vec must not include the terminating nul.
+    pub fn from_bytes(mut bytes: Vec<u8>) -> Self
+    {
+        bytes.push(0);
+        Self{bytes}
     }
 
     /// Append a byte to the string.
@@ -172,6 +184,30 @@ impl DerefMut for IString
     {
         // SAFETY: The invariant guarantees nul-termination.
         unsafe { IStr::from_bytes_with_nul_unchecked_mut(&mut self.bytes) }
+    }
+}
+
+impl PartialEq<IString> for IString
+{
+    fn eq(&self, other: &IString) -> bool
+    {
+        <IStr as PartialEq<IStr>>::eq(self, other)
+    }
+}
+
+impl PartialEq<IStr> for IString
+{
+    fn eq(&self, other: &IStr) -> bool
+    {
+        <IStr as PartialEq<IStr>>::eq(self, other)
+    }
+}
+
+impl PartialEq<IStr> for IStr
+{
+    fn eq(&self, other: &IStr) -> bool
+    {
+        self.as_bytes() == other.as_bytes()
     }
 }
 
