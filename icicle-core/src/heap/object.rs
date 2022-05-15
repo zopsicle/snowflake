@@ -28,7 +28,6 @@ pub mod objects
 
     /// Tag at the start of each object.
     #[allow(missing_docs)]
-    #[repr(u32)]
     pub enum Kind
     {
         Undef,
@@ -148,7 +147,6 @@ pub mod objects
         /// # Safety
         ///
         /// When the given function returns, the buffer must be initialized.
-        /// The function must not act as a mutator.
         pub unsafe fn new_from_fn<'h>(
             mutator: &Mutator<'h>,
             into: &StackRoot<'h>,
@@ -156,16 +154,22 @@ pub mod objects
             init: impl FnOnce(&mut [MaybeUninit<u8>]),
         )
         {
+            // NOTE: We do not prohibit init acting as a mutator;
+            //       any code surrounding it must keep that in mind.
+
+            // Skip allocation for empty string.
             if len == 0 {
                 let object = mutator.heap.pre_alloc.string_empty();
                 into.set_unsafe(object);
                 return;
             }
 
+            // Initialize string header.
             let description = Self::describe(len);
             let ptr = mutator.alloc(description.size);
             (description.init)(ptr);
 
+            // Initialize string bytes.
             let string_ptr = ptr.as_ptr().cast::<String>();
             let bytes_ptr = (*string_ptr).bytes.as_mut_ptr();
             let bytes_ptr = bytes_ptr.cast::<MaybeUninit<u8>>();
