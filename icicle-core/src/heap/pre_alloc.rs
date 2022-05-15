@@ -1,8 +1,8 @@
-use {super::{Block, Heap, UnsafeRef}, std::{cell::Cell, ptr::NonNull}};
+use {super::{Block, Heap, UnsafeRef, objects}, std::{cell::Cell, ptr::NonNull}};
 
 macro_rules! pre_alloc
 {
-    { $($name:ident $what:literal $size:literal |$ptr:ident| $init:expr,)* } => {
+    { $($name:ident $what:literal $description:expr),* $(,)? } => {
 
         /// Pre-allocated objects.
         ///
@@ -38,14 +38,16 @@ macro_rules! pre_alloc
             /// This must be called exactly once during heap construction.
             pub (super) unsafe fn init(&self, heap: &'h Heap<'h>)
             {
-                const BLOCK_SIZE: usize = 24;
+                const BLOCK_SIZE: usize = 64;
                 let mut block = Block::with_capacity(heap, BLOCK_SIZE);
 
                 $({
                     const ERR: &str = "Cannot pre-allocate object";
-                    let $ptr = block.try_alloc($size).expect(ERR);
-                    $init;
-                    self.$name.set(UnsafeRef::new($ptr));
+                    let description = $description;
+                    let size = description.size;
+                    let ptr = block.try_alloc(size).expect(ERR);
+                    (description.init)(ptr);
+                    self.$name.set(UnsafeRef::new(ptr));
                 })*
 
                 heap.add_block(block);
@@ -66,7 +68,8 @@ macro_rules! pre_alloc
 pre_alloc!
 {
     // TODO: Properly initialize the values.
-    undef         "undef"         1 |ptr| {},
-    boolean_false "Boolean false" 1 |ptr| {},
-    boolean_true  "Boolean true"  1 |ptr| {},
+    undef         "undef"         objects::Undef::describe(),
+    boolean_false "Boolean false" objects::Boolean::describe(false),
+    boolean_true  "Boolean true"  objects::Boolean::describe(true),
+    string_empty  "empty string"  objects::String::describe(&[]),
 }
