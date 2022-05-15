@@ -127,7 +127,7 @@ impl String
             return;
         }
 
-        // Initialize string header.
+        // Initialize string header and terminating nul.
         let create_info = Self::create_info_uninit(len);
         let ptr = mutator.alloc(create_info.size);
         (create_info.init)(ptr);
@@ -137,9 +137,6 @@ impl String
         let bytes_ptr = (*string_ptr).bytes.as_mut_ptr();
         let bytes_ptr = bytes_ptr.cast::<MaybeUninit<u8>>();
         init(slice::from_raw_parts_mut(bytes_ptr, len));
-
-        // Initialize terminating nul.
-        bytes_ptr.add(len).write(MaybeUninit::new(0));
 
         let object = UnsafeRef::new(ptr);
         into.set_unsafe(object);
