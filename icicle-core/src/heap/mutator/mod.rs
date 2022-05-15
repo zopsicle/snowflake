@@ -25,7 +25,7 @@ mod stack_root;
 pub struct Mutator<'h>
 {
     /// The heap to which this mutator belongs.
-    heap: &'h Heap<'h>,
+    pub heap: &'h Heap<'h>,
 
     /// Mutators are referenced by heaps.
     _pinned: PhantomPinned,

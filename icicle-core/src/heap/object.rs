@@ -1,4 +1,7 @@
-use std::{mem::{align_of, size_of}, ptr::NonNull};
+use {
+    super::{Mutator, StackRoot, UnsafeRef},
+    std::{mem::{MaybeUninit, align_of, size_of}, ptr::NonNull, slice},
+};
 
 /// Ensure that what embeds this is at least object-aligned.
 #[repr(align(8))]
@@ -42,6 +45,15 @@ pub mod objects
 
     impl Undef
     {
+        /// Obtain the pre-allocated undef object.
+        pub fn new<'h>(mutator: &Mutator<'h>, into: &StackRoot<'h>)
+        {
+            let object = mutator.heap.pre_alloc.undef();
+
+            // SAFETY: Pre-allocated objects are always live.
+            unsafe { into.set_unsafe(object) };
+        }
+
         /// Describe an undef object.
         pub unsafe fn describe()
             -> Description<impl FnOnce(NonNull<()>)>
@@ -66,6 +78,23 @@ pub mod objects
 
     impl Boolean
     {
+        /// Obtain a pre-allocated Boolean object.
+        pub fn new_from_bool<'h>(
+            mutator: &Mutator<'h>,
+            into: &StackRoot<'h>,
+            value: bool,
+        )
+        {
+            let object = if value {
+                mutator.heap.pre_alloc.boolean_true()
+            } else {
+                mutator.heap.pre_alloc.boolean_false()
+            };
+
+            // SAFETY: Pre-allocated objects are always live.
+            unsafe { into.set_unsafe(object) };
+        }
+
         /// Describe a Boolean object.
         pub unsafe fn describe(value: bool)
             -> Description<impl FnOnce(NonNull<()>)>
@@ -91,6 +120,61 @@ pub mod objects
 
     impl String
     {
+        /// Create a new string object from bytes.
+        ///
+        /// The bytes must not include the terminating nul.
+        /// This method will automatically add the terminating nul.
+        pub fn new_from_bytes<'h>(
+            mutator: &Mutator<'h>,
+            into: &StackRoot<'h>,
+            bytes: &[u8],
+        )
+        {
+            // SAFETY: The passed function initializes the buffer.
+            // SAFETY: The passed function does not act as a mutator.
+            unsafe {
+                Self::new_from_fn(mutator, into, bytes.len(), |buf| {
+                    MaybeUninit::write_slice(buf, bytes);
+                })
+            }
+        }
+
+        /// Create a new string object and initialize it.
+        ///
+        /// The given function is called to initialize the string.
+        /// The function must not write the terminating nul.
+        /// This method will automatically add the terminating nul.
+        ///
+        /// # Safety
+        ///
+        /// When the given function returns, the buffer must be initialized.
+        /// The function must not act as a mutator.
+        pub unsafe fn new_from_fn<'h>(
+            mutator: &Mutator<'h>,
+            into: &StackRoot<'h>,
+            len: usize,
+            init: impl FnOnce(&mut [MaybeUninit<u8>]),
+        )
+        {
+            if len == 0 {
+                let object = mutator.heap.pre_alloc.string_empty();
+                into.set_unsafe(object);
+                return;
+            }
+
+            let description = Self::describe(len);
+            let ptr = mutator.alloc(description.size);
+            (description.init)(ptr);
+
+            let string_ptr = ptr.as_ptr().cast::<String>();
+            let bytes_ptr = (*string_ptr).bytes.as_mut_ptr();
+            let bytes_ptr = bytes_ptr.cast::<MaybeUninit<u8>>();
+            init(slice::from_raw_parts_mut(bytes_ptr, len));
+
+            let object = UnsafeRef::new(ptr);
+            into.set_unsafe(object);
+        }
+
         /// Describe a string object.
         pub unsafe fn describe(len: usize)
             -> Description<impl FnOnce(NonNull<()>)>

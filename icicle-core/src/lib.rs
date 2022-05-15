@@ -5,6 +5,7 @@
 #![feature(dropck_eyepatch)]
 #![feature(int_roundings)]
 #![feature(let_else)]
+#![feature(maybe_uninit_write_slice)]
 #![feature(nonzero_ops)]
 #![feature(strict_provenance)]
 #![warn(missing_docs)]
