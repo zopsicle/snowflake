@@ -122,6 +122,8 @@ impl String
 
         // Skip allocation for empty string.
         if len == 0 {
+            // Call init anyway as it may have side-effects.
+            init(&mut []);
             let object = mutator.heap.pre_alloc.string_empty();
             into.set_unsafe(object);
             return;
