@@ -1,5 +1,5 @@
 use {
-    super::{OBJECT_ALIGN, Heap, ObjectAlign, UnsafeRef},
+    super::{Heap, UnsafeRef, object::{ObjectAlign, OBJECT_ALIGN}},
     std::{
         alloc::{Layout, alloc, dealloc, handle_alloc_error},
         mem::size_of,

@@ -24,7 +24,7 @@
 //!  3. The object registers and unregisters itself
 //!     during construction, cloning, and dropping.
 
-pub use self::{block::*, object::*, pre_alloc::*, refs::*};
+pub use self::{block::*, pre_alloc::*, refs::*};
 
 use {
     non_zero_ext::NonZeroExt,
@@ -41,8 +41,9 @@ use {
     },
 };
 
+pub mod object;
+
 mod block;
-mod object;
 mod pre_alloc;
 mod refs;
 
