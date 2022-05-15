@@ -71,5 +71,5 @@ pre_alloc!
     undef         "undef"         objects::Undef::describe(),
     boolean_false "Boolean false" objects::Boolean::describe(false),
     boolean_true  "Boolean true"  objects::Boolean::describe(true),
-    string_empty  "empty string"  objects::String::describe(&[]),
+    string_empty  "empty string"  objects::String::describe(0),
 }

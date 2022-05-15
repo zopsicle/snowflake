@@ -1,4 +1,4 @@
-use std::{mem::{align_of, size_of}, ptr::{self, NonNull}};
+use std::{mem::{align_of, size_of}, ptr::NonNull};
 
 /// Ensure that what embeds this is at least object-aligned.
 #[repr(align(8))]
@@ -92,20 +92,15 @@ pub mod objects
     impl String
     {
         /// Describe a string object.
-        pub unsafe fn describe<'a>(data: &'a [u8])
-            -> Description<impl 'a + FnOnce(NonNull<()>)>
+        pub unsafe fn describe(len: usize)
+            -> Description<impl FnOnce(NonNull<()>)>
         {
             Description{
                 // TODO: Handle overflow.
-                size: size_of::<Self>() + data.len(),
-                init: |ptr| {
+                size: size_of::<Self>() + len,
+                init: move |ptr| {
                     let ptr = ptr.as_ptr().cast::<Self>();
-                    *ptr = Self{kind: Kind::String, len: data.len(), bytes: []};
-                    ptr::copy_nonoverlapping(
-                        data.as_ptr(),
-                        (*ptr).bytes.as_mut_ptr(),
-                        data.len(),
-                    );
+                    *ptr = Self{kind: Kind::String, len, bytes: []};
                 },
             }
         }
