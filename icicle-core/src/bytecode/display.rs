@@ -1,6 +1,6 @@
 use {super::{Instruction, Procedure, Register}, std::fmt};
 
-impl fmt::Display for Procedure
+impl<'h> fmt::Display for Procedure<'h>
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
@@ -19,7 +19,7 @@ impl fmt::Display for Register
     }
 }
 
-impl fmt::Display for Instruction
+impl<'h> fmt::Display for Instruction<'h>
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {

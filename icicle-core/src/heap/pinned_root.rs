@@ -1,4 +1,4 @@
-use super::{BorrowRef, UnsafeRef};
+use {super::{BorrowRef, UnsafeRef}, std::fmt};
 
 /// Pinned root to an object.
 ///
@@ -60,5 +60,13 @@ impl<'h> Drop for PinnedRoot<'h>
         let heap = self.heap();
         // SAFETY: Called from PinnedRoot::drop.
         unsafe { heap.release_pinned_root(self.inner); }
+    }
+}
+
+impl<'h> fmt::Debug for PinnedRoot<'h>
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        fmt::Debug::fmt(&self.inner, f)
     }
 }

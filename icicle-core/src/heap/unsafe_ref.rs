@@ -1,6 +1,6 @@
 use {
     super::{Heap, HeapId, block::block_header_at},
-    std::{marker::PhantomData, ptr::NonNull},
+    std::{fmt, marker::PhantomData, ptr::NonNull},
 };
 
 /// Reference to an object owned by a heap.
@@ -51,5 +51,13 @@ impl<'h> UnsafeRef<'h>
     {
         let block_header = block_header_at(self);
         (*block_header).heap
+    }
+}
+
+impl<'h> fmt::Debug for UnsafeRef<'h>
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        fmt::Debug::fmt(&self.inner, f)
     }
 }
