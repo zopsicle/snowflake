@@ -1,5 +1,5 @@
 use {
-    super::{super::{Mutator, StackRoot}, CreateInfo, Kind, ObjectHeader},
+    super::{super::{Mutator, StackRoot}, CreateInfo, Kind, ObjectHeader, View},
     std::{mem::size_of, ptr::NonNull},
 };
 
@@ -41,5 +41,11 @@ impl Boolean
 
         // SAFETY: Pre-allocated objects are always live.
         unsafe { into.set_unsafe(object) };
+    }
+
+    /// View a Boolean object.
+    pub fn view(&self) -> View
+    {
+        View::Boolean(self.value)
     }
 }

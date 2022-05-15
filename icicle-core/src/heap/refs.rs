@@ -1,5 +1,5 @@
 use {
-    super::{Heap, HeapId, block_header_at},
+    super::{Heap, HeapId, block_header_at, object::View},
     std::{cell::Cell, fmt, marker::PhantomData, ptr::NonNull},
 };
 
@@ -57,6 +57,11 @@ pub unsafe trait BorrowRef<'h>
 /// [`borrow_ref`]: `BorrowRef::borrow_ref`
 pub unsafe trait PinnedRef<'h>: BorrowRef<'h>
 {
+    /// Borrow the contents of the object.
+    fn view(&self) -> View
+    {
+        View::of(self)
+    }
 }
 
 /* -------------------------------------------------------------------------- */

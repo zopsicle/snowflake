@@ -1,12 +1,13 @@
 //! Working with objects on garbage-collected heaps.
 
-pub use self::{boolean::*, string::*, undef::*};
+pub use self::{boolean::*, string::*, undef::*, view::*};
 
 use std::{mem::align_of, ptr::NonNull};
 
 mod boolean;
 mod string;
 mod undef;
+mod view;
 
 /// Ensure that what embeds this is at least object-aligned.
 #[repr(align(8))]
@@ -42,6 +43,7 @@ pub struct ObjectHeader
 /// For example, if [`ObjectHeader::kind`] is set to [`Kind::Boolean`],
 /// then the object is represented by the [`Boolean`] struct.
 #[allow(missing_docs)]
+#[derive(Clone, Copy)]
 pub enum Kind
 {
     Undef,

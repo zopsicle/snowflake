@@ -1,9 +1,11 @@
 use {
+    crate::istring::IStr,
     super::{
         super::{Mutator, StackRoot, UnsafeRef},
         CreateInfo,
         Kind,
         ObjectHeader,
+        View,
     },
     std::{
         mem::{MaybeUninit, size_of},
@@ -141,5 +143,19 @@ impl String
 
         let object = UnsafeRef::new(ptr);
         into.set_unsafe(object);
+    }
+
+    /// View a string object.
+    pub fn view(&self) -> View
+    {
+        // SAFETY: len corresponds to the number of bytes.
+        let bytes = unsafe {
+            slice::from_raw_parts(self.bytes.as_ptr(), self.len)
+        };
+
+        // SAFETY: We write the terminating nul during construction.
+        let istr = unsafe { IStr::from_bytes_with_nul_unchecked(bytes) };
+
+        View::String(istr)
     }
 }

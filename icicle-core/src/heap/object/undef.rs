@@ -1,5 +1,5 @@
 use {
-    super::{super::{Mutator, StackRoot}, CreateInfo, Kind, ObjectHeader},
+    super::{super::{Mutator, StackRoot}, CreateInfo, Kind, ObjectHeader, View},
     std::{mem::size_of, ptr::NonNull},
 };
 
@@ -32,5 +32,11 @@ impl Undef
 
         // SAFETY: Pre-allocated objects are always live.
         unsafe { into.set_unsafe(object) };
+    }
+
+    /// View an undef object.
+    pub fn view(&self) -> View
+    {
+        View::Undef
     }
 }
