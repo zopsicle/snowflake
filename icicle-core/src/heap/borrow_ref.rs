@@ -31,3 +31,19 @@ pub unsafe trait BorrowRef<'h>
         unsafe { PinnedRoot::new(self.borrow_ref()) }
     }
 }
+
+/// Trait for references to pinned objects.
+///
+/// While an object is pinned, the garbage collector will not move it.
+/// This allows for safe borrowing of the contents of the object.
+///
+/// # Safety
+///
+/// In addition to the safety requirements of [`BorrowRef`],
+/// the implementation must guarantee that [`borrow_ref`]
+/// returns a reference to a pinned object.
+///
+/// [`borrow_ref`]: `BorrowRef::borrow_ref`
+pub unsafe trait PinnedRef<'h>: BorrowRef<'h>
+{
+}

@@ -1,7 +1,7 @@
-pub use self::stack_root::*;
+pub use self::{pinned_stack_root::*, stack_root::*};
 
 use {
-    super::{DEFAULT_BLOCK_SIZE, Block, Heap},
+    super::{DEFAULT_BLOCK_SIZE, Block, BorrowRef, Heap, UnsafeRef},
     scope_exit::scope_exit,
     std::{
         cell::{RefCell, UnsafeCell},
@@ -12,6 +12,7 @@ use {
     },
 };
 
+mod pinned_stack_root;
 mod stack_root;
 
 /// Thread-local state regarding garbage-collected heaps.
@@ -37,6 +38,11 @@ pub struct Mutator<'h>
     ///
     /// [`with_stack_roots`]: `Self::with_stack_roots`
     stack_root_batches: RefCell<Vec<*const [StackRoot<'h>]>>,
+
+    /// Active pinned stack roots maintained by [`with_pinned_stack_root`].
+    ///
+    /// [`with_pinned_stack_root`]: `Self::with_pinned_stack_root`
+    pinned_stack_roots: RefCell<Vec<UnsafeRef<'h>>>,
 }
 
 impl<'h> Mutator<'h>
@@ -52,6 +58,7 @@ impl<'h> Mutator<'h>
             _pinned: PhantomPinned,
             allocator: ManuallyDrop::new(UnsafeCell::new(Block::new(heap))),
             stack_root_batches: RefCell::new(Vec::new()),
+            pinned_stack_roots: RefCell::new(Vec::new()),
         };
 
         let this = Box::into_pin(Box::new(this));
@@ -206,6 +213,55 @@ impl<'h> Mutator<'h>
 
         // Call the given function with the batch.
         f(&batch)
+    }
+
+    /// Create a pinned stack root.
+    ///
+    /// This is nearly identical to [`with_stack_roots`].
+    /// Like stack roots, pinned stack roots are
+    /// much more efficient to work with than pinned roots.
+    /// The following differences exist between
+    /// stack roots and pinned stack roots:
+    ///
+    ///  - The pinned stack root is initialized using the given reference.
+    ///  - The pinned stack root cannot be modified after its creation.
+    ///  - The pinned stack root inhibits moving of the object
+    ///    by the garbage collector.
+    ///
+    /// [`with_stack_roots`]: `Self::with_stack_roots`
+    pub fn with_pinned_stack_root<R>(
+        &self,
+        object: impl BorrowRef<'h>,
+        f: impl FnOnce(&PinnedStackRoot<'h>) -> R,
+    ) -> R
+    {
+        unsafe { self.with_pinned_stack_root_unsafe(object.borrow_ref(), f) }
+    }
+
+    /// Create a pinned stack root.
+    ///
+    /// # Safety
+    ///
+    /// The reference must reference a live object.
+    pub unsafe fn with_pinned_stack_root_unsafe<R>(
+        &self,
+        object: UnsafeRef<'h>,
+        f: impl FnOnce(&PinnedStackRoot<'h>) -> R,
+    ) -> R
+    {
+        let root = PinnedStackRoot::new(object);
+
+        let mut roots = self.pinned_stack_roots.borrow_mut();
+        roots.push(object);
+        drop(roots);
+
+        scope_exit! {
+            let mut roots = self.pinned_stack_roots.borrow_mut();
+            roots.pop().expect("pinned_stack_roots should not be empty");
+        }
+
+        // Call the given function with the root.
+        f(&root)
     }
 }
 

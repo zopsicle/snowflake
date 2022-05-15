@@ -1,4 +1,4 @@
-use {super::{BorrowRef, UnsafeRef}, std::fmt};
+use {super::{BorrowRef, PinnedRef, UnsafeRef}, std::fmt};
 
 /// Pinned root to an object.
 ///
@@ -9,9 +9,10 @@ use {super::{BorrowRef, UnsafeRef}, std::fmt};
 /// This flexibility comes at the cost of more overhead:
 /// the [`Clone`] and [`Drop`] impls update a registry of all pinned roots,
 /// and the garbage collector cannot move the object while pinned roots exist.
-/// Please use [stack roots] if possible.
+/// Please use [stack roots] or [pinned stack roots] if possible.
 ///
 /// [stack roots]: `super::Mutator::with_stack_roots`
+/// [pinned stack roots]: `super::Mutator::with_pinned_stack_root`
 pub struct PinnedRoot<'h>
 {
     // INVARIANT: The reference references a live object.
@@ -43,6 +44,11 @@ unsafe impl<'h> BorrowRef<'h> for PinnedRoot<'h>
     {
         self.inner
     }
+}
+
+// SAFETY: Pinned roots always reference pinned objects.
+unsafe impl<'h> PinnedRef<'h> for PinnedRoot<'h>
+{
 }
 
 impl<'h> Clone for PinnedRoot<'h>
