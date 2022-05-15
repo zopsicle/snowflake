@@ -5,7 +5,11 @@ use {
         Kind,
         ObjectHeader,
     },
-    std::{mem::{MaybeUninit, size_of}, ptr::NonNull, slice},
+    std::{
+        mem::{MaybeUninit, size_of},
+        ptr::{NonNull, copy_nonoverlapping},
+        slice,
+    },
 };
 
 /// In-memory representation of string objects.
@@ -13,22 +17,65 @@ use {
 pub struct String
 {
     header: ObjectHeader,
+
+    /// The number of bytes excluding the terminating nul.
     len: usize,
-    bytes: [u8; 0],
+
+    /// The bytes that make up the string.
+    bytes: [u8; 0 /* len + 1 */],
 }
 
 impl String
 {
-    pub (in super::super) unsafe fn create_info(len: usize)
+    pub (in super::super) unsafe fn create_info_from_bytes<'a>(bytes: &'a [u8])
+        -> CreateInfo<impl 'a + FnOnce(NonNull<()>)>
+    {
+        let len = bytes.len();
+
+        CreateInfo{
+
+            // TODO: Handle overflow.
+            size: size_of::<Self>() + len + 1,
+
+            init: move |ptr| {
+                let ptr = ptr.as_ptr().cast::<Self>();
+
+                // Initialize string metadata.
+                let header = ObjectHeader{kind: Kind::String};
+                *ptr = Self{header, len, bytes: []};
+
+                // Initialize string data.
+                let bytes_ptr = (*ptr).bytes.as_mut_ptr();
+                copy_nonoverlapping(bytes.as_ptr(), bytes_ptr, len);
+
+                // Initialize terminating nul.
+                *(*ptr).bytes.get_unchecked_mut(len) = 0;
+            },
+
+        }
+    }
+
+    /// Create info for an uninitialized string.
+    ///
+    /// This does initialize the terminating nul,
+    /// but not the bytes that make up the string.
+    pub (in super::super) unsafe fn create_info_uninit(len: usize)
         -> CreateInfo<impl FnOnce(NonNull<()>)>
     {
         CreateInfo{
+
             // TODO: Handle overflow.
-            size: size_of::<Self>() + len,
+            size: size_of::<Self>() + len + 1,
+
             init: move |ptr| {
                 let ptr = ptr.as_ptr().cast::<Self>();
+
+                // Initialize string metadata.
                 let header = ObjectHeader{kind: Kind::String};
                 *ptr = Self{header, len, bytes: []};
+
+                // Initialize terminating nul.
+                *(*ptr).bytes.get_unchecked_mut(len) = 0;
             },
         }
     }
@@ -79,7 +126,7 @@ impl String
         }
 
         // Initialize string header.
-        let create_info = Self::create_info(len);
+        let create_info = Self::create_info_uninit(len);
         let ptr = mutator.alloc(create_info.size);
         (create_info.init)(ptr);
 
@@ -88,6 +135,9 @@ impl String
         let bytes_ptr = (*string_ptr).bytes.as_mut_ptr();
         let bytes_ptr = bytes_ptr.cast::<MaybeUninit<u8>>();
         init(slice::from_raw_parts_mut(bytes_ptr, len));
+
+        // Initialize terminating nul.
+        bytes_ptr.add(len).write(MaybeUninit::new(0));
 
         let object = UnsafeRef::new(ptr);
         into.set_unsafe(object);
