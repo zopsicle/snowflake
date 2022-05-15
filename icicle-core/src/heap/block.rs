@@ -9,7 +9,7 @@ use {
 
 /// Alignment for blocks.
 ///
-/// The address of every block is a multiple of this object.
+/// The address of every block is a multiple of this value.
 pub const BLOCK_ALIGN: usize = 4096;
 
 /// Default size for blocks.
@@ -31,7 +31,7 @@ pub const DEFAULT_BLOCK_SIZE: usize = BLOCK_ALIGN - size_of::<BlockHeader>();
 ///
 /// Blocks also keep track of where to allocate new objects.
 /// They contain a pointer that can be bumped to perform allocations.
-/// The [`try_alloc`] method bumps this pointer and returns its old object.
+/// The [`try_alloc`] method bumps this pointer and returns its old value.
 ///
 /// [block header]: `BlockHeader`
 /// [`try_alloc`]: `Self::try_alloc`
@@ -121,7 +121,7 @@ impl<'h> Block<'h>
         // Compute the offset for the next allocation.
         let new_offset = self.offset.checked_add(size)?;
 
-        // Checks that the object fits in the block.
+        // Check that the object fits in the block.
         if new_offset > self.len {
             return None;
         }
