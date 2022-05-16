@@ -3,6 +3,9 @@ name = "icicle-core"
 version = "0.0.0"
 edition = "2021"
 
+[dependencies.allocator-ext]
+path = "../allocator-ext"
+
 [dependencies.gmp-sys]
 path = "../gmp-sys"
 

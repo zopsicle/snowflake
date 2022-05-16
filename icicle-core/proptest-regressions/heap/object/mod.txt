@@ -1,7 +1,0 @@
-# Seeds for failure cases proptest has generated in the past. It is
-# automatically read and these particular cases re-run before any
-# novel cases are generated.
-#
-# It is recommended to check this file in to source control so that
-# everyone who runs the test benefits from these saved cases.
-cc 3bbf747f75c403b83f8788f6730c8099d2917c846f77f1ee0579c96719d50227 # shrinks to template = String([])

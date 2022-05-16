@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "allocator-ext",
     "gmp-sys",
     "icicle-core",
     "non-zero-ext",

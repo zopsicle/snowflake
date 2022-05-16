@@ -1,0 +1,4 @@
+[package]
+name = "allocator-ext"
+version = "0.0.0"
+edition = "2021"
