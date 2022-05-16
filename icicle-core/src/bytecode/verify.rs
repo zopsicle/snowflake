@@ -18,7 +18,7 @@ use {
 ///
 /// See the [module documentation][`self`] for more information.
 #[derive(Debug)]
-pub struct Verified<'h>(Procedure<'h>);
+pub struct Verified(Procedure);
 
 /// Verification error.
 #[allow(missing_docs)]
@@ -35,13 +35,13 @@ pub enum Error
     InvalidMaxRegister(Option<Register>, Option<Register>),
 }
 
-impl<'h> Verified<'h>
+impl Verified
 {
     /// Perform bytecode verification on a procedure.
     ///
     /// On success, the returned procedure can be interpreted safely.
     /// On failure, only the first encountered error is returned.
-    pub fn new(procedure: Procedure<'h>) -> Result<Self, Error>
+    pub fn new(procedure: Procedure) -> Result<Self, Error>
     {
         Self::verify_ends_with_terminator(&procedure)?;
         Self::verify_max_register(&procedure)?;
@@ -54,7 +54,7 @@ impl<'h> Verified<'h>
     ///
     /// If [`Verified::new`] were called instead, it must have returned [`Ok`].
     /// Invalid usage can result in memory hazards during interpretation.
-    pub unsafe fn new_unchecked(procedure: Procedure<'h>) -> Self
+    pub unsafe fn new_unchecked(procedure: Procedure) -> Self
     {
         if cfg!(debug_assertions) {
             Self::new(procedure).unwrap()
@@ -99,9 +99,9 @@ impl<'h> Verified<'h>
     }
 }
 
-impl<'h> Deref for Verified<'h>
+impl Deref for Verified
 {
-    type Target = Procedure<'h>;
+    type Target = Procedure;
 
     fn deref(&self) -> &Self::Target
     {
@@ -109,7 +109,7 @@ impl<'h> Deref for Verified<'h>
     }
 }
 
-impl<'h> fmt::Display for Verified<'h>
+impl fmt::Display for Verified
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
@@ -120,41 +120,26 @@ impl<'h> fmt::Display for Verified<'h>
 #[cfg(test)]
 mod tests
 {
-    use {
-        crate::heap::{BorrowRef, GcHeap, PinnedRoot},
-        super::*,
-        std::assert_matches::assert_matches,
-    };
+    use {super::*, std::assert_matches::assert_matches};
 
     use Instruction as I;
     use Register as R;
 
-    fn with_undef<F, R>(f: F) -> R
-        where F: FnOnce(PinnedRoot) -> R
-    {
-        GcHeap::with(|heap| {
-            let undef = heap.with_stack_roots(|[undef]| undef.pin());
-            f(undef)
-        })
-    }
-
     #[test]
     fn example()
     {
-        with_undef(|undef| {
-            let procedure = Procedure{
-                max_register: Some(R(2)),
-                instructions: vec![
-                    I::CopyRegister      {target: R(1), source: R(0)},
-                    I::CopyConstant      {target: R(2), source: undef},
-                    I::NumericAdd        {target: R(0), left: R(1), right: R(2)},
-                    I::StringConcatenate {target: R(0), left: R(0), right: R(1)},
-                    I::Return            {value: R(0)},
-                ],
-            };
-            let result = Verified::new(procedure);
-            assert_matches!(result, Ok(_));
-        });
+        let procedure = Procedure{
+            max_register: Some(R(2)),
+            instructions: vec![
+                I::CopyRegister      {target: R(1), source: R(0)},
+                I::CopyConstant      {target: R(2), source: 0},
+                I::NumericAdd        {target: R(0), left: R(1), right: R(2)},
+                I::StringConcatenate {target: R(0), left: R(0), right: R(1)},
+                I::Return            {value: R(0)},
+            ],
+        };
+        let result = Verified::new(procedure);
+        assert_matches!(result, Ok(_));
     }
 
     #[test]
@@ -185,18 +170,16 @@ mod tests
     #[test]
     fn invalid_max_register_none()
     {
-        with_undef(|undef| {
-            let procedure = Procedure{
-                max_register: None,
-                instructions: vec![
-                    I::CopyConstant {target: R(0), source: undef},
-                    I::Return       {value: R(0)},
-                ],
-            };
-            let result = Verified::new(procedure);
-            assert_matches!(result,
-                Err(Error::InvalidMaxRegister(None, Some(R(0)))));
-        });
+        let procedure = Procedure{
+            max_register: None,
+            instructions: vec![
+                I::CopyConstant {target: R(0), source: 0},
+                I::Return       {value: R(0)},
+            ],
+        };
+        let result = Verified::new(procedure);
+        assert_matches!(result,
+            Err(Error::InvalidMaxRegister(None, Some(R(0)))));
     }
 
     #[test]

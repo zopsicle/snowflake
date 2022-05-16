@@ -1,14 +1,12 @@
 //! Working with bytecode instructions.
 
-use crate::heap::PinnedRoot;
-
 pub mod verify;
 
 mod display;
 
 /// Sequence of instructions.
 #[derive(Debug)]
-pub struct Procedure<'h>
+pub struct Procedure
 {
     /// The register with the highest number
     /// used by any of the instructions.
@@ -17,7 +15,7 @@ pub struct Procedure<'h>
     pub max_register: Option<Register>,
 
     /// The instructions to execute.
-    pub instructions: Vec<Instruction<'h>>,
+    pub instructions: Vec<Instruction>,
 }
 
 /// Identifies a register.
@@ -27,7 +25,7 @@ pub struct Register(u16);
 /// Instruction for the interpreter.
 #[allow(missing_docs)]
 #[derive(Debug)]
-pub enum Instruction<'h>
+pub enum Instruction
 {
     /// Copy a value from one register into another.
     CopyRegister{
@@ -38,7 +36,7 @@ pub enum Instruction<'h>
     /// Copy a constant value into a register.
     CopyConstant{
         target: Register,
-        source: PinnedRoot<'h>,
+        source: usize,  // TODO: Proper type.
     },
 
     /// Coerce left and right to numeric values,
@@ -63,7 +61,7 @@ pub enum Instruction<'h>
     },
 }
 
-impl<'h> Instruction<'h>
+impl Instruction
 {
     /// Whether the instruction is a terminator.
     ///

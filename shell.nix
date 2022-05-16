@@ -12,7 +12,6 @@ in
         # Tools available in Nix shell.
         nativeBuildInputs = [
             nixpkgs.cacert
-            nixpkgs.drawio
             nixpkgs.gmp
             nixpkgs.python3Packages.sphinx
             nixpkgs.rust-bindgen
