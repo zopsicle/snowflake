@@ -31,13 +31,11 @@ use {
     scope_exit::scope_exit,
     std::{
         cell::{RefCell, UnsafeCell},
-        collections::{HashMap, HashSet},
-        marker::{PhantomData, PhantomPinned},
-        mem::{ManuallyDrop, replace},
+        collections::HashMap,
+        marker::PhantomData,
+        mem::replace,
         num::NonZeroU64,
-        pin::Pin,
         ptr::NonNull,
-        sync::Mutex,
     },
 };
 
@@ -61,24 +59,17 @@ pub struct Heap<'h>
     /// Uniquely identifies this heap.
     _heap_id: HeapId<'h>,
 
-    /// Heaps are referenced all over the place.
-    _pinned: PhantomPinned,
-
     /// Pre-allocated objects.
     pub pre_alloc: PreAlloc<'h>,
 
     /// Non-allocator blocks that constitute the heap.
-    ///
-    /// Note that more blocks can be found in the mutators.
-    blocks: Mutex<Vec<Block<'h>>>,
+    blocks: RefCell<Vec<Block<'h>>>,
 
-    /// Tracks the existence of each mutator.
+    /// Block on which new small objects are allocated.
     ///
-    /// Each mutator must be known to the garbage collector,
-    /// so that the garbage collector can see its stack root batches.
-    /// The entries in this set are automatically maintained
-    /// by [`Mutator::new`] and [`Mutator::drop`].
-    mutators: Mutex<HashSet<NonNull<Mutator<'h>>>>,
+    /// This is [`None`] only during initialization.
+    /// Afterwards it is always [`Some`].
+    allocator: UnsafeCell<Option<Block<'h>>>,
 
     /// Tracks the existence of each pinned root.
     ///
@@ -87,7 +78,17 @@ pub struct Heap<'h>
     /// is prohibited from moving or garbage collecting the object.
     /// The entries in this map are automatically maintained
     /// by [`PinnedRoot::new`] and [`PinnedRoot::drop`].
-    pinned_roots: Mutex<HashMap<UnsafeRef<'h>, NonZeroU64>>,
+    pinned_roots: RefCell<HashMap<UnsafeRef<'h>, NonZeroU64>>,
+
+    /// Active stack root batches maintained by [`with_stack_roots`].
+    ///
+    /// [`with_stack_roots`]: `Self::with_stack_roots`
+    stack_root_batches: RefCell<Vec<*const [StackRoot<'h>]>>,
+
+    /// Active pinned stack roots maintained by [`with_pinned_stack_root`].
+    ///
+    /// [`with_pinned_stack_root`]: `Self::with_pinned_stack_root`
+    pinned_stack_roots: RefCell<Vec<UnsafeRef<'h>>>,
 }
 
 impl<'h> Heap<'h>
@@ -107,12 +108,18 @@ impl<'h> Heap<'h>
     {
         let heap = Heap{
             _heap_id: PhantomData,
-            _pinned: PhantomPinned,
             pre_alloc: PreAlloc::dangling(),
-            blocks: Mutex::new(Vec::new()),
-            mutators: Mutex::new(HashSet::new()),
-            pinned_roots: Mutex::new(HashMap::new()),
+            blocks: RefCell::new(Vec::new()),
+            allocator: UnsafeCell::new(None),
+            pinned_roots: RefCell::new(HashMap::new()),
+            stack_root_batches: RefCell::new(Vec::new()),
+            pinned_stack_roots: RefCell::new(Vec::new()),
         };
+
+        let allocator = Block::new(&heap);
+
+        // SAFETY: Allocator is not borrowed elsewhere.
+        unsafe { *heap.allocator.get() = Some(allocator); }
 
         // SAFETY: Called exactly once during heap construction.
         unsafe { heap.pre_alloc.init(&heap); }
@@ -123,36 +130,8 @@ impl<'h> Heap<'h>
     /// Add a block to the heap.
     fn add_block(&self, block: Block<'h>)
     {
-        let mut blocks = self.blocks.lock().unwrap();
+        let mut blocks = self.blocks.borrow_mut();
         blocks.push(block);
-    }
-
-    /// Register a mutator with the heap.
-    ///
-    /// # Safety
-    ///
-    /// Must only be called by [`Mutator::new`].
-    unsafe fn register_mutator(
-        &'h self,
-        mutator: NonNull<Mutator<'h>>,
-    )
-    {
-        let mut set = self.mutators.lock().unwrap();
-        set.insert(mutator);
-    }
-
-    /// Unregister a mutator with the heap.
-    ///
-    /// # Safety
-    ///
-    /// Must only be called by [`Mutator::drop`].
-    unsafe fn unregister_mutator(
-        &'h self,
-        mutator: NonNull<Mutator<'h>>,
-    )
-    {
-        let mut set = self.mutators.lock().unwrap();
-        set.take(&mutator).expect("Use-after-drop of mutator");
     }
 
     /// Increment the pinned root count for an object.
@@ -163,7 +142,7 @@ impl<'h> Heap<'h>
     unsafe fn retain_pinned_root(&self, object: UnsafeRef<'h>)
     {
         const ERR: &str = "Too many pinned roots for object";
-        let mut pinned_roots = self.pinned_roots.lock().unwrap();
+        let mut pinned_roots = self.pinned_roots.borrow_mut();
         pinned_roots.entry(object)
             .and_modify(|n| *n = n.checked_add(1).expect(ERR))
             .or_insert(NonZeroU64::ONE);
@@ -177,7 +156,7 @@ impl<'h> Heap<'h>
     unsafe fn release_pinned_root(&self, object: UnsafeRef<'h>)
     {
         use std::collections::hash_map::Entry::*;
-        let mut pinned_roots = self.pinned_roots.lock().unwrap();
+        let mut pinned_roots = self.pinned_roots.borrow_mut();
         match pinned_roots.entry(object) {
             Occupied(mut entry) =>
                 match NonZeroU64::new(entry.get().get() - 1) {
@@ -188,98 +167,6 @@ impl<'h> Heap<'h>
                 unreachable!("Use-after-drop of pinned root"),
         }
     }
-}
-
-/// Thread-local state regarding garbage-collected heaps.
-///
-/// Locking a mutex for every single operation is too slow.
-/// Mutators provide thread-local state for many operations,
-/// which is synchronized with the heap only during
-/// [safe points] and other infrequent events.
-///
-/// [safe points]: `Self::safe_point`
-pub struct Mutator<'h>
-{
-    /// The heap to which this mutator belongs.
-    pub heap: &'h Heap<'h>,
-
-    /// Mutators are referenced by heaps.
-    _pinned: PhantomPinned,
-
-    /// Block on which new small objects are allocated.
-    allocator: ManuallyDrop<UnsafeCell<Block<'h>>>,
-
-    /// Active stack root batches maintained by [`with_stack_roots`].
-    ///
-    /// [`with_stack_roots`]: `Self::with_stack_roots`
-    stack_root_batches: RefCell<Vec<*const [StackRoot<'h>]>>,
-
-    /// Active pinned stack roots maintained by [`with_pinned_stack_root`].
-    ///
-    /// [`with_pinned_stack_root`]: `Self::with_pinned_stack_root`
-    pinned_stack_roots: RefCell<Vec<UnsafeRef<'h>>>,
-}
-
-impl<'h> Mutator<'h>
-{
-    /// Create a mutator for a heap.
-    ///
-    /// Creating a mutator is not a zero-cost operation.
-    /// Please create one such state per thread and keep it around.
-    pub fn new(heap: &'h Heap<'h>) -> Pin<Box<Self>>
-    {
-        let this = Self{
-            heap,
-            _pinned: PhantomPinned,
-            allocator: ManuallyDrop::new(UnsafeCell::new(Block::new(heap))),
-            stack_root_batches: RefCell::new(Vec::new()),
-            pinned_stack_roots: RefCell::new(Vec::new()),
-        };
-
-        let this = Box::into_pin(Box::new(this));
-        let ptr = NonNull::from(this.as_ref().get_ref());
-
-        // SAFETY: Called from Mutator::new.
-        unsafe { heap.register_mutator(ptr) };
-
-        this
-    }
-
-    /// Enter a safe point.
-    ///
-    /// Once a garbage collection cycle is planned,
-    /// the garbage collector must ensure all mutators
-    /// have entered a safe point, during which they cannot mutate.
-    /// This method blocks until the planned garbage collection cycle finishes.
-    /// This approach is known as "stop the world".
-    ///
-    /// If no garbage collection cycle is planned,
-    /// this method returns immediately.
-    pub fn safe_point(&self)
-    {
-        // SAFETY: The passed function does nothing.
-        unsafe { self.safe_point_with(|| ()); }
-    }
-
-    /// Enter a safe point but don't block immediately.
-    ///
-    /// A safe point is entered, and the given function is called immediately.
-    /// The function will run in parallel with the garbage collector.
-    /// This is similar to [`safe_point`][`Self::safe_point`],
-    /// but blocking does not occur until the function returns.
-    /// The main purpose of this method is to allow a safe point to exist
-    /// (and hence garbage collections to proceed) during FFI calls.
-    ///
-    /// # Safety
-    ///
-    /// The given function must not perform allocations,
-    /// mutate objects, or read unpinned objects.
-    pub unsafe fn safe_point_with<F, R>(&self, f: F) -> R
-        where F: FnOnce() -> R
-    {
-        // TODO: Implement the safe point logic.
-        f()
-    }
 
     /// Allocate memory for an object.
     ///
@@ -287,7 +174,7 @@ impl<'h> Mutator<'h>
     ///
     /// The caller must initialize the allocated memory
     /// before the next garbage collection cycle.
-    pub unsafe fn alloc(&self, size: usize) -> NonNull<()>
+    pub unsafe fn alloc(&'h self, size: usize) -> NonNull<()>
     {
         if size > DEFAULT_BLOCK_SIZE {
             return self.alloc_large(size);
@@ -302,12 +189,12 @@ impl<'h> Mutator<'h>
 
     /// Allocate an ad-hoc block for this one value.
     #[inline(never)]
-    unsafe fn alloc_large(&self, size: usize) -> NonNull<()>
+    unsafe fn alloc_large(&'h self, size: usize) -> NonNull<()>
     {
-        let mut block = Block::with_capacity(self.heap, size);
+        let mut block = Block::with_capacity(self, size);
         let ptr = block.try_alloc(size)
             .expect("Block should have sufficient space");
-        self.heap.add_block(block);
+        self.add_block(block);
         return ptr;
     }
 
@@ -319,23 +206,24 @@ impl<'h> Mutator<'h>
     unsafe fn alloc_small_fast(&self, size: usize) -> Option<NonNull<()>>
     {
         let block = self.allocator.get();
-        (*block).try_alloc(size)
+        let block: &mut Block = (*block).as_mut().unwrap_unchecked();
+        block.try_alloc(size)
     }
 
     /// Allocate a new block and allocate the value in there.
     ///
-    /// The new block becomes the new allocator for this mutator.
+    /// The new block becomes the new allocator.
     #[inline(never)]
-    unsafe fn alloc_small_slow(&self, size: usize) -> NonNull<()>
+    unsafe fn alloc_small_slow(&'h self, size: usize) -> NonNull<()>
     {
         let block = self.allocator.get();
 
-        let mut new_block = Block::new(self.heap);
+        let mut new_block = Block::new(self);
         let ptr = new_block.try_alloc(size)
             .expect("Block should have sufficient space");
 
-        let old_block = replace(&mut *block, new_block);
-        self.heap.add_block(old_block);
+        let old_block = replace(&mut *block, Some(new_block));
+        self.add_block(old_block.unwrap_unchecked());
 
         ptr
     }
@@ -371,7 +259,7 @@ impl<'h> Mutator<'h>
     {
         // Initialize the stack root batch with undefs.
         // StackRoot doesn't impl Copy so we can't use [StackRoot{..}; N].
-        let undef = self.heap.pre_alloc.undef();
+        let undef = self.pre_alloc.undef();
         let new_root = |()| unsafe { StackRoot::new(undef) };
         let batch = [(); N].map(new_root);
 
@@ -437,20 +325,5 @@ impl<'h> Mutator<'h>
 
         // Call the given function with the root.
         f(&root)
-    }
-}
-
-impl<'h> Drop for Mutator<'h>
-{
-    fn drop(&mut self)
-    {
-        // Make sure the allocator is not dropped,
-        // by transferring ownership of it to the heap.
-        // SAFETY: Allocator is not used anymore after.
-        let allocator = unsafe { ManuallyDrop::take(&mut self.allocator) };
-        self.heap.add_block(allocator.into_inner());
-
-        // SAFETY: Called from Mutator::drop.
-        unsafe { self.heap.unregister_mutator(NonNull::from(self)); }
     }
 }

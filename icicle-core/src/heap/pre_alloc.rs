@@ -17,10 +17,6 @@ macro_rules! pre_alloc
             $($name: Cell<UnsafeRef<'h>>,)*
         }
 
-        // SAFETY: Not mutated anymore after call to init.
-        unsafe impl<'h> Send for PreAlloc<'h> { }
-        unsafe impl<'h> Sync for PreAlloc<'h> { }
-
         impl<'h> PreAlloc<'h>
         {
             /// Prepare for allocating the objects.

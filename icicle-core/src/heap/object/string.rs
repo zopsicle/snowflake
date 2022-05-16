@@ -1,7 +1,7 @@
 use {
     crate::istring::IStr,
     super::{
-        super::{Mutator, StackRoot, UnsafeRef},
+        super::{Heap, StackRoot, UnsafeRef},
         CreateInfo,
         Kind,
         ObjectHeader,
@@ -68,15 +68,14 @@ impl String
     /// The bytes must not include the terminating nul.
     /// This method will automatically add the terminating nul.
     pub fn new_from_bytes<'h>(
-        mutator: &Mutator<'h>,
+        heap: &'h Heap<'h>,
         into: &StackRoot<'h>,
         bytes: &[u8],
     )
     {
         // SAFETY: The passed function initializes the buffer.
-        // SAFETY: The passed function does not act as a mutator.
         unsafe {
-            Self::new_from_fn(mutator, into, bytes.len(), |buf| {
+            Self::new_from_fn(heap, into, bytes.len(), |buf| {
                 MaybeUninit::write_slice(buf, bytes);
             })
         }
@@ -92,7 +91,7 @@ impl String
     ///
     /// When the given function returns, the buffer must be initialized.
     pub unsafe fn new_from_fn<'h>(
-        mutator: &Mutator<'h>,
+        heap: &'h Heap<'h>,
         into: &StackRoot<'h>,
         len: usize,
         init: impl FnOnce(&mut [MaybeUninit<u8>]),
@@ -105,14 +104,14 @@ impl String
         if len == 0 {
             // Call init anyway as it may have side-effects.
             init(&mut []);
-            let object = mutator.heap.pre_alloc.string_empty();
+            let object = heap.pre_alloc.string_empty();
             into.set_unsafe(object);
             return;
         }
 
         // Initialize string header and terminating nul.
         let create_info = Self::create_info_from_fn(len, init);
-        let ptr = mutator.alloc(create_info.size);
+        let ptr = heap.alloc(create_info.size);
         (create_info.init)(ptr);
 
         let object = UnsafeRef::new(ptr);

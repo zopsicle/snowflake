@@ -89,10 +89,6 @@ pub struct UnsafeRef<'h>
     inner: NonNull<()>,
 }
 
-// SAFETY: Working with UnsafeRef already requires unsafe.
-unsafe impl<'h> Send for UnsafeRef<'h> { }
-unsafe impl<'h> Sync for UnsafeRef<'h> { }
-
 impl<'h> UnsafeRef<'h>
 {
     /// Create a reference from the address of an object.
@@ -134,17 +130,13 @@ impl<'h> UnsafeRef<'h>
 /// and the garbage collector cannot move the object while pinned roots exist.
 /// Please use [stack roots] or [pinned stack roots] if possible.
 ///
-/// [stack roots]: `super::Mutator::with_stack_roots`
-/// [pinned stack roots]: `super::Mutator::with_pinned_stack_root`
+/// [stack roots]: `Heap::with_stack_roots`
+/// [pinned stack roots]: `Heap::with_pinned_stack_root`
 pub struct PinnedRoot<'h>
 {
     // INVARIANT: The reference references a live object.
     inner: UnsafeRef<'h>,
 }
-
-// SAFETY: Registry of all pinned roots is updated synchronized.
-unsafe impl<'h> Send for PinnedRoot<'h> { }
-unsafe impl<'h> Sync for PinnedRoot<'h> { }
 
 impl<'h> PinnedRoot<'h>
 {
@@ -198,10 +190,8 @@ impl<'h> Drop for PinnedRoot<'h>
 
 /// Stack-allocated root to an object.
 ///
-/// Stack roots are managed by [`Mutator::with_stack_roots`].
+/// Stack roots are managed by [`Heap::with_stack_roots`].
 /// See the documentation on said method for more information.
-///
-/// [`Mutator::with_stack_roots`]: `super::Mutator::with_stack_roots`
 pub struct StackRoot<'h>
 {
     // The garbage collector modifies these references,
@@ -256,10 +246,8 @@ unsafe impl<'h> BorrowRef<'h> for StackRoot<'h>
 
 /// Pinned stack-allocated root to an object.
 ///
-/// Pinned stack roots are managed by [`Mutator::with_pinned_stack_root`].
+/// Pinned stack roots are managed by [`Heap::with_pinned_stack_root`].
 /// See the documentation on said method for more information.
-///
-/// [`Mutator::with_pinned_stack_root`]: `super::Mutator::with_pinned_stack_root`
 pub struct PinnedStackRoot<'h>
 {
     // NOTE: In contrast with StackRoot, we cannot use Cell here,

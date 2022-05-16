@@ -1,5 +1,5 @@
 use {
-    super::{super::{Mutator, StackRoot}, CreateInfo, Kind, ObjectHeader, View},
+    super::{super::{Heap, StackRoot}, CreateInfo, Kind, ObjectHeader, View},
     std::{mem::size_of, ptr::NonNull},
 };
 
@@ -28,15 +28,15 @@ impl Boolean
 
     /// Obtain a pre-allocated Boolean object.
     pub fn new_from_bool<'h>(
-        mutator: &Mutator<'h>,
+        heap: &Heap<'h>,
         into: &StackRoot<'h>,
         value: bool,
     )
     {
         let object = if value {
-            mutator.heap.pre_alloc.boolean_true()
+            heap.pre_alloc.boolean_true()
         } else {
-            mutator.heap.pre_alloc.boolean_false()
+            heap.pre_alloc.boolean_false()
         };
 
         // SAFETY: Pre-allocated objects are always live.

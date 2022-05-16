@@ -1,5 +1,5 @@
 use {
-    super::{super::{Mutator, StackRoot}, CreateInfo, Kind, ObjectHeader, View},
+    super::{super::{Heap, StackRoot}, CreateInfo, Kind, ObjectHeader, View},
     std::{mem::size_of, ptr::NonNull},
 };
 
@@ -26,9 +26,9 @@ impl Undef
     }
 
     /// Obtain the pre-allocated undef object.
-    pub fn new<'h>(mutator: &Mutator<'h>, into: &StackRoot<'h>)
+    pub fn new<'h>(heap: &Heap<'h>, into: &StackRoot<'h>)
     {
-        let object = mutator.heap.pre_alloc.undef();
+        let object = heap.pre_alloc.undef();
 
         // SAFETY: Pre-allocated objects are always live.
         unsafe { into.set_unsafe(object) };

@@ -56,7 +56,7 @@ mod tests
 {
     use {
         crate::istring::IString,
-        super::{*, super::{BorrowRef, Heap, Mutator, PinnedRef, StackRoot}},
+        super::{*, super::{BorrowRef, Heap, PinnedRef, StackRoot}},
         proptest::{self as p, proptest, strategy::Strategy},
     };
 
@@ -85,15 +85,15 @@ mod tests
         }
 
         /// Create a new object from the template.
-        fn new<'h>(&self, mutator: &Mutator<'h>, root: &StackRoot<'h>)
+        fn new<'h>(&self, heap: &'h Heap<'h>, root: &StackRoot<'h>)
         {
             match self {
                 Self::Undef =>
-                    Undef::new(mutator, root),
+                    Undef::new(heap, root),
                 Self::Boolean(value) =>
-                    Boolean::new_from_bool(mutator, root, *value),
+                    Boolean::new_from_bool(heap, root, *value),
                 Self::String(bytes) =>
-                    String::new_from_bytes(mutator, root, bytes.as_bytes()),
+                    String::new_from_bytes(heap, root, bytes.as_bytes()),
             }
         }
 
@@ -125,11 +125,10 @@ mod tests
         )
         {
             Heap::with(|heap| {
-                let mutator = Mutator::new(heap);
                 let mut cases = Vec::new();
-                mutator.with_stack_roots(|[root]| {
+                heap.with_stack_roots(|[root]| {
                     for template in templates {
-                        template.new(&mutator, root);
+                        template.new(heap, root);
                         cases.push((template, root.pin()));
                     }
                 });

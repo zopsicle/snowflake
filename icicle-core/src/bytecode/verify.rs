@@ -121,7 +121,7 @@ impl<'h> fmt::Display for Verified<'h>
 mod tests
 {
     use {
-        crate::heap::{BorrowRef, Heap, Mutator, PinnedRoot},
+        crate::heap::{BorrowRef, Heap, PinnedRoot},
         super::*,
         std::assert_matches::assert_matches,
     };
@@ -133,8 +133,7 @@ mod tests
         where F: FnOnce(PinnedRoot) -> R
     {
         Heap::with(|heap| {
-            let mutator = Mutator::new(heap);
-            let undef = mutator.with_stack_roots(|[undef]| undef.pin());
+            let undef = heap.with_stack_roots(|[undef]| undef.pin());
             f(undef)
         })
     }
