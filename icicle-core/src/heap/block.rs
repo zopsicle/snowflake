@@ -1,5 +1,5 @@
 use {
-    super::{Heap, UnsafeRef, object::{ObjectAlign, OBJECT_ALIGN}},
+    super::{GcHeap, UnsafeRef, object::{ObjectAlign, OBJECT_ALIGN}},
     std::{
         alloc::{Layout, alloc, dealloc, handle_alloc_error},
         mem::size_of,
@@ -56,7 +56,7 @@ pub struct Block<'h>
 impl<'h> Block<'h>
 {
     /// Allocate a block with the default block size.
-    pub fn new(heap: &'h Heap<'h>) -> Self
+    pub fn new(heap: &'h GcHeap<'h>) -> Self
     {
         Self::with_capacity(heap, DEFAULT_BLOCK_SIZE)
     }
@@ -65,7 +65,7 @@ impl<'h> Block<'h>
     ///
     /// The given size must not include the size of the block header;
     /// this method will add the necessary block header size.
-    pub fn with_capacity(heap: &'h Heap<'h>, cap: usize) -> Self
+    pub fn with_capacity(heap: &'h GcHeap<'h>, cap: usize) -> Self
     {
         // Reserve space for the block header.
         let len = cap.checked_add(size_of::<BlockHeader>())
@@ -157,7 +157,7 @@ unsafe impl<#[may_dangle] 'h> Drop for Block<'h>
 pub struct BlockHeader<'h>
 {
     /// The heap to which this block belongs.
-    pub heap: &'h Heap<'h>,
+    pub heap: &'h GcHeap<'h>,
 
     /// Ensure sufficient alignment for objects.
     ///
@@ -201,7 +201,7 @@ mod tests
         #[test]
         fn block_with_capacity_aligns_properly(cap in 0usize .. 12_000)
         {
-            Heap::with(|heap| {
+            GcHeap::with(|heap| {
                 let block = Block::with_capacity(heap, cap);
                 let ptr: *const _ = block.block_header();
                 assert_eq!(ptr.expose_addr() % BLOCK_ALIGN, 0);

@@ -1,4 +1,7 @@
-use {super::{Block, Heap, UnsafeRef, object}, std::{cell::Cell, ptr::NonNull}};
+use {
+    super::{Block, GcHeap, UnsafeRef, object},
+    std::{cell::Cell, ptr::NonNull},
+};
 
 macro_rules! pre_alloc
 {
@@ -9,7 +12,7 @@ macro_rules! pre_alloc
         /// Small objects with little structure are pre-allocated.
         /// Think of objects like undef, Booleans, and small integers.
         /// There is no need to allocate these over and over again.
-        /// Available through [`Heap::pre_alloc`].
+        /// Available through [`GcHeap::pre_alloc`].
         pub struct PreAlloc<'h>
         {
             // These must be cells because they are initialized separately.
@@ -32,7 +35,7 @@ macro_rules! pre_alloc
             /// # Safety
             ///
             /// This must be called exactly once during heap construction.
-            pub (super) unsafe fn init(&self, heap: &'h Heap<'h>)
+            pub (super) unsafe fn init(&self, heap: &'h GcHeap<'h>)
             {
                 const BLOCK_SIZE: usize = 64;
                 let mut block = Block::with_capacity(heap, BLOCK_SIZE);

@@ -1,5 +1,5 @@
 use {
-    super::{Heap, HeapId, block_header_at, object::View},
+    super::{GcHeap, HeapId, block_header_at, object::View},
     std::{cell::Cell, fmt, marker::PhantomData, ptr::NonNull},
 };
 
@@ -25,7 +25,7 @@ pub unsafe trait BorrowRef<'h>
     fn borrow_ref(&self) -> UnsafeRef<'h>;
 
     /// Obtain the heap the referenced object belongs to.
-    fn heap(&self) -> &'h Heap<'h>
+    fn heap(&self) -> &'h GcHeap<'h>
     {
         // SAFETY: borrow_ref returns a reference to a live object.
         unsafe { self.borrow_ref().heap() }
@@ -108,7 +108,7 @@ impl<'h> UnsafeRef<'h>
     /// # Safety
     ///
     /// The reference must reference a live object.
-    pub unsafe fn heap(self) -> &'h Heap<'h>
+    pub unsafe fn heap(self) -> &'h GcHeap<'h>
     {
         let block_header = block_header_at(self);
         (*block_header).heap
@@ -130,8 +130,8 @@ impl<'h> UnsafeRef<'h>
 /// and the garbage collector cannot move the object while pinned roots exist.
 /// Please use [stack roots] or [pinned stack roots] if possible.
 ///
-/// [stack roots]: `Heap::with_stack_roots`
-/// [pinned stack roots]: `Heap::with_pinned_stack_root`
+/// [stack roots]: `GcHeap::with_stack_roots`
+/// [pinned stack roots]: `GcHeap::with_pinned_stack_root`
 pub struct PinnedRoot<'h>
 {
     // INVARIANT: The reference references a live object.
@@ -190,7 +190,7 @@ impl<'h> Drop for PinnedRoot<'h>
 
 /// Stack-allocated root to an object.
 ///
-/// Stack roots are managed by [`Heap::with_stack_roots`].
+/// Stack roots are managed by [`GcHeap::with_stack_roots`].
 /// See the documentation on said method for more information.
 pub struct StackRoot<'h>
 {
@@ -246,7 +246,7 @@ unsafe impl<'h> BorrowRef<'h> for StackRoot<'h>
 
 /// Pinned stack-allocated root to an object.
 ///
-/// Pinned stack roots are managed by [`Heap::with_pinned_stack_root`].
+/// Pinned stack roots are managed by [`GcHeap::with_pinned_stack_root`].
 /// See the documentation on said method for more information.
 pub struct PinnedStackRoot<'h>
 {

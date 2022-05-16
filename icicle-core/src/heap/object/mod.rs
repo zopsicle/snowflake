@@ -56,7 +56,7 @@ mod tests
 {
     use {
         crate::istring::IString,
-        super::{*, super::{BorrowRef, Heap, PinnedRef, StackRoot}},
+        super::{*, super::{BorrowRef, GcHeap, PinnedRef, StackRoot}},
         proptest::{self as p, proptest, strategy::Strategy},
     };
 
@@ -85,7 +85,7 @@ mod tests
         }
 
         /// Create a new object from the template.
-        fn new<'h>(&self, heap: &'h Heap<'h>, root: &StackRoot<'h>)
+        fn new<'h>(&self, heap: &'h GcHeap<'h>, root: &StackRoot<'h>)
         {
             match self {
                 Self::Undef =>
@@ -124,7 +124,7 @@ mod tests
             ),
         )
         {
-            Heap::with(|heap| {
+            GcHeap::with(|heap| {
                 let mut cases = Vec::new();
                 heap.with_stack_roots(|[root]| {
                     for template in templates {

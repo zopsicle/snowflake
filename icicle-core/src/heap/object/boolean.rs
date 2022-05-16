@@ -1,5 +1,5 @@
 use {
-    super::{super::{Heap, StackRoot}, CreateInfo, Kind, ObjectHeader, View},
+    super::{super::{GcHeap, StackRoot}, CreateInfo, Kind, ObjectHeader, View},
     std::{mem::size_of, ptr::NonNull},
 };
 
@@ -28,7 +28,7 @@ impl Boolean
 
     /// Obtain a pre-allocated Boolean object.
     pub fn new_from_bool<'h>(
-        heap: &Heap<'h>,
+        heap: &GcHeap<'h>,
         into: &StackRoot<'h>,
         value: bool,
     )

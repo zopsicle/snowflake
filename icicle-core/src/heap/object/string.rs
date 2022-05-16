@@ -1,7 +1,7 @@
 use {
     crate::istring::IStr,
     super::{
-        super::{Heap, StackRoot, UnsafeRef},
+        super::{GcHeap, StackRoot, UnsafeRef},
         CreateInfo,
         Kind,
         ObjectHeader,
@@ -68,7 +68,7 @@ impl String
     /// The bytes must not include the terminating nul.
     /// This method will automatically add the terminating nul.
     pub fn new_from_bytes<'h>(
-        heap: &'h Heap<'h>,
+        heap: &'h GcHeap<'h>,
         into: &StackRoot<'h>,
         bytes: &[u8],
     )
@@ -91,7 +91,7 @@ impl String
     ///
     /// When the given function returns, the buffer must be initialized.
     pub unsafe fn new_from_fn<'h>(
-        heap: &'h Heap<'h>,
+        heap: &'h GcHeap<'h>,
         into: &StackRoot<'h>,
         len: usize,
         init: impl FnOnce(&mut [MaybeUninit<u8>]),

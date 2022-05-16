@@ -54,7 +54,7 @@ type HeapId<'h> = PhantomData<fn(&'h ()) -> &'h ()>;
 /// This prevents objects from pointing to objects on different heaps,
 /// which would cause the garbage collector to crash horribly.
 /// The `'h` parameter can also be used as a lifetime for the heap.
-pub struct Heap<'h>
+pub struct GcHeap<'h>
 {
     /// Uniquely identifies this heap.
     _heap_id: HeapId<'h>,
@@ -91,7 +91,7 @@ pub struct Heap<'h>
     pinned_stack_roots: RefCell<Vec<UnsafeRef<'h>>>,
 }
 
-impl<'h> Heap<'h>
+impl<'h> GcHeap<'h>
 {
     /// Create a heap with a unique `'h` parameter.
     ///
@@ -104,9 +104,9 @@ impl<'h> Heap<'h>
         //       Otherwise the given function could move it.
         //       This must be prevented, because heaps are referenced
         //       in several places the borrow checker is unaware of.
-        where F: for<'i> FnOnce(&'i Heap<'i>) -> R
+        where F: for<'i> FnOnce(&'i GcHeap<'i>) -> R
     {
-        let heap = Heap{
+        let heap = GcHeap{
             _heap_id: PhantomData,
             pre_alloc: PreAlloc::dangling(),
             blocks: RefCell::new(Vec::new()),

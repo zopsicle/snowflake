@@ -1,5 +1,5 @@
 use {
-    super::{super::{Heap, StackRoot}, CreateInfo, Kind, ObjectHeader, View},
+    super::{super::{GcHeap, StackRoot}, CreateInfo, Kind, ObjectHeader, View},
     std::{mem::size_of, ptr::NonNull},
 };
 
@@ -26,7 +26,7 @@ impl Undef
     }
 
     /// Obtain the pre-allocated undef object.
-    pub fn new<'h>(heap: &Heap<'h>, into: &StackRoot<'h>)
+    pub fn new<'h>(heap: &GcHeap<'h>, into: &StackRoot<'h>)
     {
         let object = heap.pre_alloc.undef();
 

@@ -121,7 +121,7 @@ impl<'h> fmt::Display for Verified<'h>
 mod tests
 {
     use {
-        crate::heap::{BorrowRef, Heap, PinnedRoot},
+        crate::heap::{BorrowRef, GcHeap, PinnedRoot},
         super::*,
         std::assert_matches::assert_matches,
     };
@@ -132,7 +132,7 @@ mod tests
     fn with_undef<F, R>(f: F) -> R
         where F: FnOnce(PinnedRoot) -> R
     {
-        Heap::with(|heap| {
+        GcHeap::with(|heap| {
             let undef = heap.with_stack_roots(|[undef]| undef.pin());
             f(undef)
         })
