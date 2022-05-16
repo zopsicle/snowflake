@@ -13,7 +13,7 @@ pub struct Boolean
 
 impl Boolean
 {
-    pub (in super::super) unsafe fn create_info(value: bool)
+    pub (in super::super) unsafe fn create_info_from_bool(value: bool)
         -> CreateInfo<impl FnOnce(NonNull<()>)>
     {
         CreateInfo{

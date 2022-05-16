@@ -68,7 +68,7 @@ macro_rules! pre_alloc
 pre_alloc!
 {
     undef         "undef"         object::Undef::create_info(),
-    boolean_false "Boolean false" object::Boolean::create_info(false),
-    boolean_true  "Boolean true"  object::Boolean::create_info(true),
+    boolean_false "Boolean false" object::Boolean::create_info_from_bool(false),
+    boolean_true  "Boolean true"  object::Boolean::create_info_from_bool(true),
     string_empty  "empty string"  object::String::create_info_from_bytes(&[]),
 }
