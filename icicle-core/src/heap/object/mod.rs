@@ -72,7 +72,7 @@ mod tests
     impl Template
     {
         /// Generate arbitrary templates.
-        fn arbitrary() -> impl Strategy<Value=Template>
+        fn any() -> impl Strategy<Value=Template>
         {
             p::prop_oneof![
                 1  => p::strategy::LazyJust::new(|| Self::Undef),
@@ -119,7 +119,7 @@ mod tests
         #[test]
         fn roundtrip(
             templates in p::collection::vec(
-                Template::arbitrary(),
+                Template::any(),
                 0 ..= 100,
             ),
         )
