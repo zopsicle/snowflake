@@ -1,5 +1,5 @@
 use {
-    super::{CnfHeap, GcHeap},
+    super::{CompactRegion, GcHeap},
     allocator_ext::AligningAllocator,
     std::{alloc::Global, default::default, mem::{MaybeUninit, size_of}, ptr},
     thiserror::Error,
@@ -29,7 +29,7 @@ pub struct Block
 pub enum BlockHeader
 {
     GcHeap(*const GcHeap),
-    CnfHeap(*const CnfHeap),
+    CompactRegion(*const CompactRegion),
 }
 
 /// Returned when creating a block that would be too large.

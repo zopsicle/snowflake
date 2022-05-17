@@ -2,6 +2,7 @@
 
 #![feature(allocator_api)]
 #![feature(assert_matches)]
+#![feature(box_into_pin)]
 #![feature(default_free_fn)]
 #![feature(int_roundings)]
 #![warn(missing_docs)]
