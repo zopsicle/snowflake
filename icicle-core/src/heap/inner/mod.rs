@@ -10,6 +10,7 @@
 //!
 //! A [fiber][`Fiber`] is a type of heap that implements garbage collection.
 //! Each fiber also contains a stack which is used as a call stack.
+//! References on the call stack are garbage collection roots.
 //!
 //! Objects that live in fibers may not be referenced from other heaps.
 //!
@@ -32,21 +33,22 @@
 //! they are automatically destroyed when nobody references them anymore.
 //! Shared ownership of compact regions exists in a few places, most notably:
 //!
-//!  - A fiber has shared ownership of any compact region
-//!    it possibly contains references to compacted objects from.
+//!  - A fiber has shared ownership of any compact region it possibly
+//!    references through compacted objects or compact region handles.
 //!    The shared ownership is recomputed on each garbage collection cycle,
 //!    and also when compacted objects are received from channels.
 //!
-//!  - A compact region has shared ownership of any compact region
-//!    it possibly contains references to compacted objects from,
-//!    except for references to compacted objects from itself.
+//!  - A compact region has shared ownership of any compact region it possibly
+//!    references through compacted objects or compact region handles.
+//!    (Except that a compact region never has shared ownership of itself.)
 //!    The shared ownership is recomputed when objects containing
-//!    references to compacted objects are added to the compact region.
+//!    such references are added to the compact region.
 //!    How to deal with cyclic references between compact regions
 //!    is currently an unsolved problem; you'll get memory leaks.
 //!
-//!  - Every queue element of a channel tracks
-//!    which compact regions its objects live in.
+//!  - A queue element of a channel has shared ownership of
+//!    any compact region it possibly references through
+//!    compacted objects or compact region handles.
 //!    (During object serialization when sending over a channel,
 //!    compacted objects are serialized as their address,
 //!    along with an arc to their owning compact region.)
@@ -71,9 +73,20 @@
 //! Padding bytes may exist between adjacent objects in a block.
 //! But no more than the minimum required for alignment,
 //! so the garbage collector can traverse the block.
+//!
+//! ## Objects
+//!
+//! Every [object][`object`] begins with an [object header][`ObjectHeader`].
 
-pub use self::{block::*, compact_region::*, fiber::*};
+pub use self::{
+    block::*,
+    compact_region::*,
+    fiber::*,
+    object::{OBJECT_ALIGN, ObjectHeader, ObjectRef},
+};
 
 mod block;
 mod compact_region;
 mod fiber;
+
+pub mod object;

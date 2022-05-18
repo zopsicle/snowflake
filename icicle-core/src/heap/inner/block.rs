@@ -1,5 +1,5 @@
 use {
-    super::{CompactRegion, Fiber},
+    super::{OBJECT_ALIGN, CompactRegion, Fiber, ObjectRef},
     allocator_ext::AligningAllocator,
     std::{alloc::Global, default::default, mem::{MaybeUninit, size_of}, ptr},
     thiserror::Error,
@@ -8,8 +8,11 @@ use {
 /// Minimum alignment for blocks.
 pub const BLOCK_ALIGN: usize = 4096;
 
-/// Minimum alignment for objects.
-pub const OBJECT_ALIGN: usize = 8;
+/// Default block size.
+///
+/// The default block size is suitable for allocation of many small objects.
+/// The amount of memory allocated is precisely [`BLOCK_ALIGN`].
+pub const DEFAULT_BLOCK_SIZE: usize = BLOCK_ALIGN - size_of::<BlockHeader>();
 
 /// Owning pointer to a block.
 pub struct Block
@@ -40,13 +43,9 @@ pub struct BlockSizeError(());
 impl Block
 {
     /// Create a block with the default block size.
-    ///
-    /// The default block size is suitable for allocation of many small objects.
-    /// The amount of memory allocated is precisely [`BLOCK_ALIGN`].
     pub fn new(header: BlockHeader) -> Self
     {
-        let size = BLOCK_ALIGN - size_of::<BlockHeader>();
-        Self::with_size(size, header).unwrap()
+        Self::with_size(DEFAULT_BLOCK_SIZE, header).unwrap()
     }
 
     /// Create a block with the given size.
@@ -79,7 +78,7 @@ impl Block
     ///
     /// If there is insufficient room inside the block, returns [`None`].
     /// Otherwise returns a pointer to the uninitialized object.
-    pub fn try_alloc(&mut self, size: usize) -> Option<*mut u8>
+    pub fn try_alloc(&mut self, size: usize) -> Option<*mut ()>
     {
         // Object must begin within first BLOCK_ALIGN bytes.
         if self.offset >= BLOCK_ALIGN {
@@ -103,7 +102,7 @@ impl Block
         // because a block that large wouldn't fit in memory.
         self.offset = next_multiple_of_power_of_two(past_object, OBJECT_ALIGN);
 
-        Some(ptr.cast::<u8>())
+        Some(ptr.cast())
     }
 }
 
@@ -114,6 +113,17 @@ impl Block
 fn next_multiple_of_power_of_two(lhs: usize, rhs: usize) -> usize
 {
     (lhs + rhs - 1) & !(rhs - 1)
+}
+
+impl BlockHeader
+{
+    /// Obtain the block header of the block housing a given object.
+    pub fn for_object(object_ref: ObjectRef) -> *const Self
+    {
+        let object_addr = object_ref.ptr.as_ptr() as usize;
+        let block_addr = object_addr & !(BLOCK_ALIGN - 1);
+        block_addr as *const BlockHeader
+    }
 }
 
 #[cfg(test)]
