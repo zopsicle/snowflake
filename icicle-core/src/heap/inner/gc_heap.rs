@@ -1,4 +1,4 @@
-use super::CompactRegion;
+use super::{Block, BlockHeader, CompactRegion};
 
 use std::{
     cell::RefCell,
@@ -16,18 +16,27 @@ pub struct GcHeap
 
     /// Shared ownership of compact regions.
     compact_regions: RefCell<HashSet<Pin<Arc<CompactRegion>>>>,
+
+    /// Block in which new allocations take place.
+    allocation_block: RefCell<Block>,
 }
 
 impl GcHeap
 {
     pub fn new() -> Pin<Box<Self>>
     {
+        let r#box = Box::new_uninit();
+
+        let allocation_block_header = BlockHeader::GcHeap(r#box.as_ptr());
+        let allocation_block = Block::new(allocation_block_header);
+
         let this = Self{
             _pinned: PhantomPinned,
             compact_regions: RefCell::new(HashSet::new()),
+            allocation_block: RefCell::new(allocation_block),
         };
 
-        Box::into_pin(Box::new(this))
+        Box::into_pin(Box::write(r#box, this))
     }
 
     /// Make the garbage-collected heap a shared owner of a compact region.
