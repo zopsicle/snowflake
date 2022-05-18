@@ -6,13 +6,12 @@
 //! The documentation on the individual items is intentionally left sparse;
 //! refer to this section for all the important design information.
 //!
-//! ## Garbage-collected heaps
+//! ## Fibers
 //!
-//! A [garbage-collected heap][`GcHeap`] implements
-//! tracing garbage collection for freeing memory.
+//! A [fiber][`Fiber`] is a type of heap that implements garbage collection.
+//! Each fiber also contains a stack which is used as a call stack.
 //!
-//! Objects that live in garbage-collected heaps
-//! may not be referenced from other heaps.
+//! Objects that live in fibers may not be referenced from other heaps.
 //!
 //! ## Compact regions
 //!
@@ -33,7 +32,7 @@
 //! they are automatically destroyed when nobody references them anymore.
 //! Shared ownership of compact regions exists in a few places, most notably:
 //!
-//!  - A garbage-collected heap has shared ownership of any compact region
+//!  - A fiber has shared ownership of any compact region
 //!    it possibly contains references to compacted objects from.
 //!    The shared ownership is recomputed on each garbage collection cycle,
 //!    and also when compacted objects are received from channels.
@@ -73,8 +72,8 @@
 //! But no more than the minimum required for alignment,
 //! so the garbage collector can traverse the block.
 
-pub use self::{block::*, compact_region::*, gc_heap::*};
+pub use self::{block::*, compact_region::*, fiber::*};
 
 mod block;
 mod compact_region;
-mod gc_heap;
+mod fiber;

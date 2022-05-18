@@ -13,7 +13,7 @@ use {
 /// Compact region.
 pub struct CompactRegion
 {
-    /// Each block stores a pointer to the heap.
+    /// Each block stores a pointer to the compact region.
     _pinned: PhantomPinned,
 
     /// Compact regions are allocated into from multiple threads.

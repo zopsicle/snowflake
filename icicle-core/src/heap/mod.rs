@@ -1,3 +1,3 @@
-//! Garbage-collected heaps and compact regions.
+//! Fibers and compact regions.
 
 pub mod inner;

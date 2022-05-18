@@ -1,5 +1,5 @@
 use {
-    super::{CompactRegion, GcHeap},
+    super::{CompactRegion, Fiber},
     allocator_ext::AligningAllocator,
     std::{alloc::Global, default::default, mem::{MaybeUninit, size_of}, ptr},
     thiserror::Error,
@@ -28,7 +28,7 @@ pub struct Block
 #[allow(missing_docs)]
 pub enum BlockHeader
 {
-    GcHeap(*const GcHeap),
+    Fiber(*const Fiber),
     CompactRegion(*const CompactRegion),
 }
 
@@ -125,7 +125,7 @@ mod tests
         std::{mem::align_of, ptr::null},
     };
 
-    const DUMMY_BLOCK_HEADER: BlockHeader = BlockHeader::GcHeap(null());
+    const DUMMY_BLOCK_HEADER: BlockHeader = BlockHeader::Fiber(null());
 
     #[test]
     fn block_align_exceeds_block_header_align()
