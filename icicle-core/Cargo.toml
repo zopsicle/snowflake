@@ -4,19 +4,19 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies.allocator-ext]
-path = "../allocator-ext"
+path = "../common/allocator-ext"
 
 [dependencies.gmp-sys]
-path = "../gmp-sys"
+path = "../common/gmp-sys"
 
 [dependencies.libc]
 version = "~0.2.125"
 
 [dependencies.non-zero-ext]
-path = "../non-zero-ext"
+path = "../common/non-zero-ext"
 
 [dependencies.scope-exit]
-path = "../scope-exit"
+path = "../common/scope-exit"
 
 [dependencies.thiserror]
 version = "^1.0.31"

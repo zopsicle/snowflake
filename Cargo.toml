@@ -1,10 +1,10 @@
 [workspace]
 members = [
-    "allocator-ext",
-    "gmp-sys",
+    "common/allocator-ext",
+    "common/gmp-sys",
+    "common/non-zero-ext",
+    "common/os-ext",
+    "common/scope-exit",
     "icicle-core",
-    "non-zero-ext",
-    "os-ext",
-    "scope-exit",
     "snowflake",
 ]
