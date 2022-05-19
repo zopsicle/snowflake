@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "os-ext",
-    "scope-exit",
+    "common/os-ext",
+    "common/scope-exit",
     "snowflake",
 ]
