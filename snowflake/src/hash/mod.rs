@@ -1,4 +1,4 @@
-//! Identifying elements of a build.
+//! Identifying elements of a cache.
 
 pub use self::{blake3::*, file::*};
 
@@ -7,7 +7,7 @@ use std::fmt;
 mod blake3;
 mod file;
 
-/// Cryptographic hash used for identifying elements of a build.
+/// Cryptographic hash used for identifying elements of a cache.
 ///
 /// # Examples
 ///
