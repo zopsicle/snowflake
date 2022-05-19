@@ -6,7 +6,7 @@ use {
         io::{self, ErrorKind::AlreadyExists},
         lazy::SyncOnceCell,
         os::unix::io::{AsFd, BorrowedFd, OwnedFd},
-        path::Path,
+        path::{Path, PathBuf},
         sync::atomic::{AtomicU32, Ordering::SeqCst},
     },
 };
@@ -43,8 +43,7 @@ impl State
     /// The state directory must already exist.
     /// Components of the state directory are not opened immediately;
     /// they are opened when they are first used.
-    pub fn open<P>(path: P) -> io::Result<Self>
-        where P: AsRef<Path>
+    pub fn open(path: &Path) -> io::Result<Self>
     {
         let state_dir = open(path, O_DIRECTORY | O_PATH, 0)?;
 
@@ -75,9 +74,10 @@ impl State
     pub fn new_scratch_dir(&self) -> io::Result<OwnedFd>
     {
         let scratches_dir = self.scratches_dir()?;
-        let path = self.next_scratch_dir.fetch_add(1, SeqCst).to_string();
+        let scratch_dir_id = self.next_scratch_dir.fetch_add(1, SeqCst);
+        let path = PathBuf::from(scratch_dir_id.to_string());
         mkdirat(Some(scratches_dir), &path, 0o755)?;
-        openat(Some(scratches_dir), path, O_DIRECTORY | O_PATH, 0)
+        openat(Some(scratches_dir), &path, O_DIRECTORY | O_PATH, 0)
     }
 
     /// Handle to the cached actions directory.
@@ -106,6 +106,7 @@ impl State
         path: &str,
     ) -> io::Result<BorrowedFd<'a>>
     {
+        let path = Path::new(path);
         let owned_fd = cell.get_or_try_init(|| {
             let dirfd = Some(self.state_dir.as_fd());
             mkdirat(dirfd, path, 0o755)
@@ -139,7 +140,7 @@ mod tests
     fn new_scratch_dir()
     {
         // Create state directory.
-        let path = mkdtemp("/tmp/snowflake-test-XXXXXX").unwrap();
+        let path = mkdtemp(Path::new("/tmp/snowflake-test-XXXXXX")).unwrap();
         scope_exit! { let _ = remove_dir_all(&path); }
 
         // Create two scratch directories.
@@ -150,15 +151,15 @@ mod tests
         // Test paths to the scratch directories.
         let magic_link_0 = format!("/proc/self/fd/{}", scratch_dir_0.as_raw_fd());
         let magic_link_1 = format!("/proc/self/fd/{}", scratch_dir_1.as_raw_fd());
-        let scratch_dir_path_0 = readlink(magic_link_0).unwrap();
-        let scratch_dir_path_1 = readlink(magic_link_1).unwrap();
+        let scratch_dir_path_0 = readlink(Path::new(&magic_link_0)).unwrap();
+        let scratch_dir_path_1 = readlink(Path::new(&magic_link_1)).unwrap();
         assert_eq!(scratch_dir_path_0, path.join("scratches/0"));
         assert_eq!(scratch_dir_path_1, path.join("scratches/1"));
 
         // Test that scratch directory is writable.
         openat(
             Some(scratch_dir_0.as_fd()),
-            "build.log",
+            Path::new("build.log"),
             O_CREAT | O_WRONLY,
             0o644,
         ).unwrap();

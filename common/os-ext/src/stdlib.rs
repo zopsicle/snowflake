@@ -9,10 +9,9 @@ use {
 };
 
 /// Call mkdtemp(3) with the given arguments.
-pub fn mkdtemp<P>(template: P) -> io::Result<PathBuf>
-    where P: AsRef<Path>
+pub fn mkdtemp(template: &Path) -> io::Result<PathBuf>
 {
-    let template = CString::new(template.as_ref().as_os_str().as_bytes())?;
+    let template = CString::new(template.as_os_str().as_bytes())?;
 
     // CString::as_mut_ptr does not exist.
     let mut template = template.into_bytes_with_nul();

@@ -9,7 +9,7 @@ use {
 };
 
 /// Equivalent to [`readlink`] with [`None`] passed for `dirfd`.
-pub fn readlink(pathname: impl AsRef<Path>) -> io::Result<PathBuf>
+pub fn readlink(pathname: &Path) -> io::Result<PathBuf>
 {
     readlinkat(None, pathname)
 }
@@ -21,11 +21,11 @@ pub fn readlink(pathname: impl AsRef<Path>) -> io::Result<PathBuf>
 /// readlinkat(2) truncates the target if it does not fit into the buffer.
 /// When this happens, the wrapper function automatically retries the call
 /// with a bigger buffer, until it fits.
-pub fn readlinkat(dirfd: Option<BorrowedFd>, pathname: impl AsRef<Path>)
+pub fn readlinkat(dirfd: Option<BorrowedFd>, pathname: &Path)
     -> io::Result<PathBuf>
 {
     let dirfd = dirfd.map(|fd| fd.as_raw_fd()).unwrap_or(libc::AT_FDCWD);
-    let pathname = CString::new(pathname.as_ref().as_os_str().as_bytes())?;
+    let pathname = CString::new(pathname.as_os_str().as_bytes())?;
 
     // NOTE: When changing the initial buffer size,
     //       adjust sizes of symlinks in testdata.
@@ -76,7 +76,7 @@ mod tests
         for len in [10, 255, 256, 257, 512] {
             let expected: String = "0123456789".chars().cycle().take(len).collect();
             let symlink = format!("testdata/{}-byte-symlink", len);
-            let actual = readlinkat(None, symlink).unwrap();
+            let actual = readlinkat(None, Path::new(&symlink)).unwrap();
             assert_eq!(actual, PathBuf::from(expected));
         }
     }

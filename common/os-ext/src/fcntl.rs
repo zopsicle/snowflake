@@ -12,7 +12,7 @@ use {
 };
 
 /// Equivalent to [`openat`] with [`None`] passed for `dirfd`.
-pub fn open(pathname: impl AsRef<Path>, flags: libc::c_int, mode: libc::mode_t)
+pub fn open(pathname: &Path, flags: libc::c_int, mode: libc::mode_t)
     -> io::Result<OwnedFd>
 {
     openat(None, pathname, flags, mode)
@@ -23,13 +23,13 @@ pub fn open(pathname: impl AsRef<Path>, flags: libc::c_int, mode: libc::mode_t)
 /// If `dirfd` is [`None`], `AT_FDCWD` is passed.
 pub fn openat(
     dirfd:    Option<BorrowedFd>,
-    pathname: impl AsRef<Path>,
+    pathname: &Path,
     flags:    libc::c_int,
     mode:     libc::mode_t,
 ) -> io::Result<OwnedFd>
 {
     let dirfd = dirfd.map(|fd| fd.as_raw_fd()).unwrap_or(libc::AT_FDCWD);
-    let pathname = CString::new(pathname.as_ref().as_os_str().as_bytes())?;
+    let pathname = CString::new(pathname.as_os_str().as_bytes())?;
     let flags = flags | libc::O_CLOEXEC;
 
     retry_on_eintr(|| {
