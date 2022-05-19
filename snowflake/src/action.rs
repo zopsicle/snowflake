@@ -23,14 +23,41 @@ pub enum Action
     },
 }
 
+impl ActionGraph
+{
+    /// Remove any actions not necessary to produce the artifacts.
+    pub fn mark_and_sweep(&mut self)
+    {
+        fn mark_recursively<'a>(
+            graph: &HashMap<ActionLabel, Action>,
+            live: &mut HashSet<ActionLabel>,
+            outputs: impl Iterator<Item=&'a ActionOutputLabel>,
+        )
+        {
+            for ActionOutputLabel{action, ..} in outputs {
+                if !live.insert(action.clone()) {
+                    continue;
+                }
+                let action = graph.get(action)
+                    .expect("Action graph is missing action");
+                mark_recursively(graph, live, action.inputs());
+            }
+        }
+
+        let mut live = HashSet::new();
+        mark_recursively(&self.actions, &mut live, self.artifacts.iter());
+        self.actions.retain(|k, _| live.contains(k));
+    }
+}
+
 impl Action
 {
-    pub fn inputs(&self) -> impl '_ + Iterator<Item=ActionOutputLabel>
+    pub fn inputs(&self) -> impl Iterator<Item=&ActionOutputLabel>
     {
         match self {
-            Self::CreateSymbolicLink{..} => [].iter().cloned(),
-            Self::WriteRegularFile{..} => [].iter().cloned(),
-            Self::RunCommand{inputs} => inputs.iter().cloned(),
+            Self::CreateSymbolicLink{..} => [].iter(),
+            Self::WriteRegularFile{..} => [].iter(),
+            Self::RunCommand{inputs} => inputs.iter(),
         }
     }
 }

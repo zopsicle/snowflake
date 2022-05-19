@@ -17,7 +17,7 @@ fn main()
     let osx1c = ActionOutputLabel{action: asx1.clone(), output: "c".into()};
     let osy0d = ActionOutputLabel{action: asy0.clone(), output: "d".into()};
 
-    let action_graph = ActionGraph{
+    let mut action_graph = ActionGraph{
         actions: [
             (asx0, Action::WriteRegularFile{content: "hello".into(), executable: false}),
             (asx1, Action::RunCommand{inputs: vec![osx0a, osx0b.clone()]}),
@@ -26,6 +26,8 @@ fn main()
         ].into_iter().collect(),
         artifacts: [osx1c, osy0d].into_iter().collect(),
     };
+
+    action_graph.mark_and_sweep();
 
     println!("{}", action_graph);
 }
