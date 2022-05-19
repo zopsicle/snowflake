@@ -11,8 +11,15 @@
 #![allow(missing_docs)]
 
 use {
+    crate::bytecode,
     super::CompactRegion,
-    std::{cell::Cell, mem::{MaybeUninit, size_of}, ptr::{self, NonNull}, slice},
+    std::{
+        cell::Cell,
+        fmt,
+        mem::{MaybeUninit, size_of, size_of_val},
+        ptr::{self, NonNull},
+        slice,
+    },
 };
 
 /// Minimum alignment for objects.
@@ -25,6 +32,23 @@ pub struct ObjectRef
     pub ptr: NonNull<ObjectHeader>,
 }
 
+impl ObjectRef
+{
+    /// Create a dangling object reference
+    pub fn dangling() -> Self
+    {
+        Self{ptr: NonNull::dangling()}
+    }
+}
+
+impl fmt::Debug for ObjectRef
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        fmt::Debug::fmt(&self.ptr, f)
+    }
+}
+
 /// Type of object.
 pub enum ObjectHeader
 {
@@ -33,6 +57,7 @@ pub enum ObjectHeader
     String,
     Array,
     Slot,
+    Procedure,
     CompactRegionHandle,
 }
 
@@ -168,6 +193,40 @@ pub unsafe fn slot_init_from_object_ref(ptr: *mut (), object_ref: ObjectRef)
     let header = ObjectHeader::Slot;
     let cell = Cell::new(object_ref);
     ptr::write(ptr, Slot{header, cell});
+    ObjectRef{ptr: NonNull::new_unchecked(ptr).cast()}
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                  Procedure                                 */
+/* -------------------------------------------------------------------------- */
+
+#[repr(C)]
+pub struct Procedure
+{
+    pub header: ObjectHeader,
+    pub max_register: Option<bytecode::Register>,
+    pub len: usize,
+    pub instructions: [bytecode::Instruction; 0 /* len */],
+}
+
+pub fn procedure_size(procedure: &bytecode::verify::Verified) -> usize
+{
+    // TODO: Handle integer overflow.
+    size_of::<Procedure>() + size_of_val::<[_]>(&procedure.instructions)
+}
+
+pub unsafe fn procedure_init_from_verified(
+    ptr: *mut (),
+    procedure: &bytecode::verify::Verified,
+) -> ObjectRef
+{
+    let ptr = ptr.cast::<Procedure>();
+    let header = ObjectHeader::Procedure;
+    let max_register = procedure.max_register;
+    let len = procedure.instructions.len();
+    ptr::write(ptr, Procedure{header, max_register, len, instructions: []});
+    slice::from_raw_parts_mut((*ptr).instructions.as_mut_ptr(), len)
+        .copy_from_slice(&procedure.instructions);
     ObjectRef{ptr: NonNull::new_unchecked(ptr).cast()}
 }
 

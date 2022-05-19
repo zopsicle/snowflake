@@ -6,7 +6,6 @@
 //! or if an instruction references an out-of-bounds register,
 //! this would not trigger an assertion in the interpreter.
 //! The _bytecode verification_ algorithm checks that such behavior is absent.
-//! Interpreting verified bytecode is guaranteed to be memory safe.
 
 use {
     super::{Instruction, Procedure, Register},
@@ -82,7 +81,7 @@ impl Verified
     fn verify_max_register(procedure: &Procedure) -> Result<(), Error>
     {
         let actual_max_register =
-            procedure.instructions.iter()
+            procedure.instructions.iter().copied()
             .flat_map(Instruction::registers)
             .max();
 
@@ -120,7 +119,11 @@ impl fmt::Display for Verified
 #[cfg(test)]
 mod tests
 {
-    use {super::*, std::assert_matches::assert_matches};
+    use {
+        crate::heap::inner::ObjectRef,
+        super::*,
+        std::assert_matches::assert_matches,
+    };
 
     use Instruction as I;
     use Register as R;
@@ -132,7 +135,7 @@ mod tests
             max_register: Some(R(2)),
             instructions: vec![
                 I::CopyRegister      {target: R(1), source: R(0)},
-                I::CopyConstant      {target: R(2), source: 0},
+                I::CopyConstant      {target: R(2), source: ObjectRef::dangling()},
                 I::NumericAdd        {target: R(0), left: R(1), right: R(2)},
                 I::StringConcatenate {target: R(0), left: R(0), right: R(1)},
                 I::Return            {value: R(0)},
@@ -173,7 +176,7 @@ mod tests
         let procedure = Procedure{
             max_register: None,
             instructions: vec![
-                I::CopyConstant {target: R(0), source: 0},
+                I::CopyConstant {target: R(0), source: ObjectRef::dangling()},
                 I::Return       {value: R(0)},
             ],
         };

@@ -1,5 +1,7 @@
 //! Working with bytecode instructions.
 
+use crate::heap::inner::ObjectRef;
+
 pub mod verify;
 
 mod display;
@@ -24,7 +26,7 @@ pub struct Register(u16);
 
 /// Instruction for the interpreter.
 #[allow(missing_docs)]
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum Instruction
 {
     /// Copy a value from one register into another.
@@ -36,7 +38,7 @@ pub enum Instruction
     /// Copy a constant value into a register.
     CopyConstant{
         target: Register,
-        source: usize,  // TODO: Proper type.
+        source: ObjectRef,
     },
 
     /// Coerce left and right to numeric values,
@@ -68,7 +70,7 @@ impl Instruction
     /// A terminator unconditionally transfers control;
     /// it never continues to the subsequent instruction
     /// (except if it's a jump equivalent to a no-op).
-    pub fn is_terminator(&self) -> bool
+    pub fn is_terminator(self) -> bool
     {
         match self {
             // Terminators.
@@ -87,7 +89,7 @@ impl Instruction
     /// The returned iterator yields the registers in arbitrary order.
     /// It yields the same register multiple times
     /// if it appears multiple times in the instruction.
-    pub fn registers(&self) -> impl Iterator<Item=Register>
+    pub fn registers(self) -> impl Iterator<Item=Register>
     {
         macro_rules! chain
         {
@@ -97,15 +99,15 @@ impl Instruction
         }
         match self {
             Self::CopyRegister{target, source} =>
-                chain!(Some(*target), Some(*source), None),
+                chain!(Some(target), Some(source), None),
             Self::CopyConstant{target, source: _} =>
-                chain!(Some(*target), None, None),
+                chain!(Some(target), None, None),
             Self::NumericAdd{target, left, right} =>
-                chain!(Some(*target), Some(*left), Some(*right)),
+                chain!(Some(target), Some(left), Some(right)),
             Self::StringConcatenate{target, left, right} =>
-                chain!(Some(*target), Some(*left), Some(*right)),
+                chain!(Some(target), Some(left), Some(right)),
             Self::Return{value} =>
-                chain!(Some(*value), None, None),
+                chain!(Some(value), None, None),
         }
     }
 }
