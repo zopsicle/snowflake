@@ -1,26 +1,13 @@
 use {
     crate::label::{ActionLabel, ActionOutputLabel},
-    std::{collections::{HashMap, HashSet}, ffi::CString, fmt},
+    super::Action,
+    std::{collections::{HashMap, HashSet}, fmt},
 };
 
 pub struct ActionGraph
 {
     pub actions: HashMap<ActionLabel, Action>,
     pub artifacts: HashSet<ActionOutputLabel>,
-}
-
-pub enum Action
-{
-    CreateSymbolicLink{
-        target: CString,
-    },
-    WriteRegularFile{
-        content: Vec<u8>,
-        executable: bool,
-    },
-    RunCommand{
-        inputs: Vec<ActionOutputLabel>,
-    },
 }
 
 impl ActionGraph
