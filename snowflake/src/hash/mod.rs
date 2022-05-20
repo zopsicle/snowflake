@@ -6,6 +6,7 @@ use std::fmt;
 
 mod blake3;
 mod file;
+mod put;
 
 /// Cryptographic hash used for identifying elements of a cache.
 ///

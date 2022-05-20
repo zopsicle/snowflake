@@ -56,14 +56,7 @@ pub fn hash_file_at<P>(dirfd: Option<BorrowedFd>, path: P)
     Ok(blake3.finalize())
 }
 
-// In the below code, we write a file to a writer (usually a Blake3).
-// It is very important that different files are hashed differently;
-// otherwise it would be possible to create a corrupted build cache!
-// An easy way to ensure this is to write the data in such a way
-// that it can theoretically be parsed to reconstruct the original file.
-// To make sure there are no disambiguities involving variable-length data,
-// we either prefix such data with a number indicating their length,
-// or we terminate it with a suitable sentinel value.
+// NOTE: See the manual chapter on avoiding hash collisions.
 
 fn write_file_at(
     writer: &mut impl Write,
