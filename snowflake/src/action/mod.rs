@@ -26,3 +26,18 @@ pub enum Action
         inputs: Vec<ActionOutputLabel>,
     },
 }
+
+impl Action
+{
+    /// The outputs of other actions that are inputs to this action.
+    ///
+    /// Inputs are yielded in arbitrary order and may include duplicates.
+    pub fn inputs(&self) -> impl Iterator<Item=&ActionOutputLabel>
+    {
+        match self {
+            Self::CreateSymbolicLink{..} => [].iter(),
+            Self::WriteRegularFile{..} => [].iter(),
+            Self::RunCommand{inputs} => inputs.iter(),
+        }
+    }
+}

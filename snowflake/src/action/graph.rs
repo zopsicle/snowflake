@@ -43,21 +43,6 @@ impl ActionGraph
     }
 }
 
-impl Action
-{
-    /// The outputs of other actions that are inputs to this action.
-    ///
-    /// Inputs are yielded in arbitrary order and may include duplicates.
-    pub fn inputs(&self) -> impl Iterator<Item=&ActionOutputLabel>
-    {
-        match self {
-            Self::CreateSymbolicLink{..} => [].iter(),
-            Self::WriteRegularFile{..} => [].iter(),
-            Self::RunCommand{inputs} => inputs.iter(),
-        }
-    }
-}
-
 impl fmt::Display for ActionGraph
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
