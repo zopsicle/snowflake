@@ -27,7 +27,7 @@ fn main()
         artifacts: [osx1c, osy0d].into_iter().collect(),
     };
 
-    action_graph.mark_and_sweep();
+    action_graph.prune();
 
     println!("{}", action_graph);
 }

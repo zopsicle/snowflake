@@ -4,17 +4,23 @@ use {
     std::{collections::{HashMap, HashSet}, fmt},
 };
 
+/// Collection of actions and artifacts.
 pub struct ActionGraph
 {
+    /// Actions to perform, in order implied by [inputs][`Action::inputs`].
     pub actions: HashMap<ActionLabel, Action>,
+
+    /// Outputs made available to the user after building.
     pub artifacts: HashSet<ActionOutputLabel>,
 }
 
 impl ActionGraph
 {
     /// Remove any actions not necessary to produce the artifacts.
-    pub fn mark_and_sweep(&mut self)
+    pub fn prune(&mut self)
     {
+        // This implements a mark-and-sweep algorithm.
+
         fn mark_recursively<'a>(
             graph: &HashMap<ActionLabel, Action>,
             live: &mut HashSet<ActionLabel>,
@@ -39,6 +45,9 @@ impl ActionGraph
 
 impl Action
 {
+    /// The outputs of other actions that are inputs to this action.
+    ///
+    /// Inputs are yielded in arbitrary order and may include duplicates.
     pub fn inputs(&self) -> impl Iterator<Item=&ActionOutputLabel>
     {
         match self {

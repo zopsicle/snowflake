@@ -5,6 +5,7 @@ use std::sync::Arc;
 mod display;
 
 /// Identifies a package.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct PackageLabel
 {
@@ -12,6 +13,7 @@ pub struct PackageLabel
 }
 
 /// Identifies a rule.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct RuleLabel
 {
@@ -20,6 +22,7 @@ pub struct RuleLabel
 }
 
 /// Identifies an action.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct ActionLabel
 {
@@ -28,6 +31,7 @@ pub struct ActionLabel
 }
 
 /// Identifies an output of a rule.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct RuleOutputLabel
 {
@@ -36,6 +40,7 @@ pub struct RuleOutputLabel
 }
 
 /// Identifies an output of an action.
+#[allow(missing_docs)]
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct ActionOutputLabel
 {
