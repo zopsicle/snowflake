@@ -34,7 +34,7 @@ pub enum Action
         // Using a B-tree ensures a stable ordering,
         // which is important for the configuration hash.
         inputs: BTreeMap<Arc<Basename>, ActionOutputLabel>,
-        outputs: BTreeMap<Arc<Basename>, u32>,
+        outputs: Vec<Arc<Basename>>,
     },
 }
 
@@ -61,12 +61,17 @@ impl Action
                 hasher.put_u8(ACTION_TYPE_RUN_COMMAND);
 
                 // The action graph structure is irrelevant to the hash.
-                // So we only include the names of the inputs and outputs,
+                // So we only include the names of the inputs,
                 // and not the files they represent in the action graph.
                 hasher.put_usize(inputs.len());
+                for input in inputs.keys() {
+                    hasher.put_basename(input);
+                }
+
                 hasher.put_usize(outputs.len());
-                inputs .keys().for_each(|i| { hasher.put_basename(i); });
-                outputs.keys().for_each(|o| { hasher.put_basename(o); });
+                for output in outputs {
+                    hasher.put_basename(output);
+                }
             },
         }
     }
