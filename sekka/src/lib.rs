@@ -15,6 +15,10 @@ use {
     std::{alloc::{Layout, handle_alloc_error}, ptr::NonNull},
 };
 
+pub mod bytecode;
+
+mod lower;
+
 /// Sekka virtual machine.
 pub struct Sekka
 {
