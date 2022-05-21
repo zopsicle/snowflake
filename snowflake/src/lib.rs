@@ -1,5 +1,6 @@
 //! Snowflake build system.
 
+#![doc(html_logo_url = "/manual/_static/logo.svg")]
 #![feature(io_safety)]
 #![feature(let_chains)]
 #![feature(once_cell)]
