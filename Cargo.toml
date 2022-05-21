@@ -2,5 +2,6 @@
 members = [
     "common/os-ext",
     "common/scope-exit",
+    "sekka",
     "snowflake",
 ]
