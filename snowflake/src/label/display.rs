@@ -1,4 +1,7 @@
-use {super::*, std::fmt::{Display, Formatter, Result}};
+use {
+    super::*,
+    std::{fmt::{Display, Formatter, Result}, os::unix::ffi::OsStrExt},
+};
 
 impl Display for PackageLabel
 {
@@ -44,5 +47,13 @@ impl Display for ActionOutputLabel
     fn fmt(&self, f: &mut Formatter) -> Result
     {
         write!(f, "{}|{}", self.action, self.output)
+    }
+}
+
+impl Display for Basename
+{
+    fn fmt(&self, f: &mut Formatter) -> Result
+    {
+        Display::fmt(&self.inner.as_bytes().escape_ascii(), f)
     }
 }
