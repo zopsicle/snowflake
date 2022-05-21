@@ -12,19 +12,19 @@ fn main()
     let asy0 = ActionLabel{rule: rsy.clone(), action: 0};
     let asy1 = ActionLabel{rule: rsy,         action: 1};
 
-    let osx0a = ActionOutputLabel{action: asx0.clone(), output: "a".into()};
-    let osx0b = ActionOutputLabel{action: asx0.clone(), output: "b".into()};
-    let osx1c = ActionOutputLabel{action: asx1.clone(), output: "c".into()};
-    let osy0d = ActionOutputLabel{action: asy0.clone(), output: "d".into()};
+    let osx00 = ActionOutputLabel{action: asx0.clone(), output: 0};
+    let osx01 = ActionOutputLabel{action: asx0.clone(), output: 1};
+    let osx10 = ActionOutputLabel{action: asx1.clone(), output: 0};
+    let osy00 = ActionOutputLabel{action: asy0.clone(), output: 0};
 
     let mut action_graph = ActionGraph{
         actions: [
             (asx0, Action::WriteRegularFile{content: "hello".into(), executable: false}),
-            (asx1, Action::RunCommand{inputs: vec![osx0a, osx0b.clone()]}),
-            (asy0, Action::RunCommand{inputs: vec![osx0b, osx1c.clone()]}),
-            (asy1, Action::RunCommand{inputs: vec![osx1c.clone()]}),
+            (asx1, Action::RunCommand{inputs: vec![osx00, osx01.clone()]}),
+            (asy0, Action::RunCommand{inputs: vec![osx01, osx10.clone()]}),
+            (asy1, Action::RunCommand{inputs: vec![osx10.clone()]}),
         ].into_iter().collect(),
-        artifacts: [osx1c, osy0d].into_iter().collect(),
+        artifacts: [osx10, osy00].into_iter().collect(),
     };
 
     action_graph.prune();

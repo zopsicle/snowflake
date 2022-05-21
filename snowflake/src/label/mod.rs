@@ -45,5 +45,5 @@ pub struct RuleOutputLabel
 pub struct ActionOutputLabel
 {
     pub action: ActionLabel,
-    pub output: Arc<str>,
+    pub output: u32,
 }
