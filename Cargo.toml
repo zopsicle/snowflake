@@ -1,6 +1,8 @@
 [workspace]
 members = [
+    "common/lua-sys",
     "common/os-ext",
     "common/scope-exit",
+    "sekka",
     "snowflake",
 ]

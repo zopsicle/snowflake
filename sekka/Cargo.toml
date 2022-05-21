@@ -1,0 +1,7 @@
+[package]
+name = "sekka"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies.lua-sys]
+path = "../common/lua-sys"

@@ -23,6 +23,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5916d2ae698f6de9bfb891ad7a8d65c09d232dc58cc4ac433c7da3b2fd84bc2b"
 
 [[package]]
+name = "lua-sys"
+version = "0.0.0"
+
+[[package]]
 name = "os-ext"
 version = "0.0.0"
 dependencies = [
@@ -50,6 +54,13 @@ dependencies = [
 [[package]]
 name = "scope-exit"
 version = "0.0.0"
+
+[[package]]
+name = "sekka"
+version = "0.0.0"
+dependencies = [
+ "lua-sys",
+]
 
 [[package]]
 name = "snowflake"
