@@ -2,7 +2,10 @@
 
 pub use self::graph::*;
 
-use {crate::{hash::Blake3, label::ActionOutputLabel}, std::ffi::CString};
+use {
+    crate::{basename::Basename, hash::Blake3, label::ActionOutputLabel},
+    std::{collections::BTreeMap, ffi::CString, sync::Arc},
+};
 
 mod graph;
 
@@ -26,7 +29,8 @@ pub enum Action
     },
 
     RunCommand{
-        inputs: Vec<ActionOutputLabel>,
+        inputs: BTreeMap<Arc<Basename>, ActionOutputLabel>,
+        outputs: BTreeMap<Arc<Basename>, u32>,
     },
 }
 
@@ -49,8 +53,16 @@ impl Action
                 hasher.put_bytes(content);
                 hasher.put_bool(*executable);
             },
-            Self::RunCommand{inputs: _} => {
+            Self::RunCommand{inputs, outputs} => {
                 hasher.put_u8(ACTION_TYPE_RUN_COMMAND);
+
+                // The action graph structure is irrelevant to the hash.
+                // So we only include the names of the inputs and outputs,
+                // and not the files they represent in the action graph.
+                hasher.put_usize(inputs.len());
+                hasher.put_usize(outputs.len());
+                inputs .keys().for_each(|i| { hasher.put_basename(i); });
+                outputs.keys().for_each(|o| { hasher.put_basename(o); });
             },
         }
     }
@@ -61,9 +73,10 @@ impl Action
     pub fn inputs(&self) -> impl Iterator<Item=&ActionOutputLabel>
     {
         match self {
-            Self::CreateSymbolicLink{..} => [].iter(),
-            Self::WriteRegularFile{..} => [].iter(),
-            Self::RunCommand{inputs} => inputs.iter(),
+            Self::CreateSymbolicLink{..} => None.into_iter().flatten(),
+            Self::WriteRegularFile{..} => None.into_iter().flatten(),
+            Self::RunCommand{inputs, ..} =>
+                Some(inputs.values()).into_iter().flatten(),
         }
     }
 }

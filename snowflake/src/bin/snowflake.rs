@@ -1,4 +1,4 @@
-use snowflake::{action::*, label::*};
+use {snowflake::{action::*, basename::*, label::*}, std::sync::Arc};
 
 fn main()
 {
@@ -19,10 +19,42 @@ fn main()
 
     let mut action_graph = ActionGraph{
         actions: [
-            (asx0, Action::WriteRegularFile{content: "hello".into(), executable: false}),
-            (asx1, Action::RunCommand{inputs: vec![osx00, osx01.clone()]}),
-            (asy0, Action::RunCommand{inputs: vec![osx01, osx10.clone()]}),
-            (asy1, Action::RunCommand{inputs: vec![osx10.clone()]}),
+            (
+                asx0,
+                Action::WriteRegularFile{
+                    content: "hello".into(),
+                    executable: false,
+                },
+            ),
+            (
+                asx1,
+                Action::RunCommand{
+                    inputs: [
+                        (Arc::from(Basename::new("a").unwrap()), osx00),
+                        (Arc::from(Basename::new("b").unwrap()), osx01.clone()),
+                    ].into_iter().collect(),
+                    outputs: [].into_iter().collect(),
+                },
+            ),
+            (
+                asy0,
+                Action::RunCommand{
+                    inputs: [
+                        (Arc::from(Basename::new("c").unwrap()), osx01),
+                        (Arc::from(Basename::new("d").unwrap()), osx10.clone()),
+                    ].into_iter().collect(),
+                    outputs: [].into_iter().collect(),
+                },
+            ),
+            (
+                asy1,
+                Action::RunCommand{
+                    inputs: [
+                        (Arc::from(Basename::new("e").unwrap()), osx10.clone()),
+                    ].into_iter().collect(),
+                    outputs: [].into_iter().collect(),
+                },
+            ),
         ].into_iter().collect(),
         artifacts: [osx10, osy00].into_iter().collect(),
     };

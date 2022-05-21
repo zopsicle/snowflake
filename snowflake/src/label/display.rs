@@ -1,7 +1,4 @@
-use {
-    super::*,
-    std::{fmt::{Display, Formatter, Result}, os::unix::ffi::OsStrExt},
-};
+use {super::*, std::{fmt::{Display, Formatter, Result}}};
 
 impl Display for PackageLabel
 {
@@ -11,7 +8,7 @@ impl Display for PackageLabel
             write!(f, "/")
         } else {
             for segment in self.segments.iter() {
-                write!(f, "/{}", segment)?;
+                write!(f, "/{}", segment.as_bytes().escape_ascii())?;
             }
             Ok(())
         }
@@ -38,7 +35,7 @@ impl Display for RuleOutputLabel
 {
     fn fmt(&self, f: &mut Formatter) -> Result
     {
-        write!(f, "{}|{}", self.rule, self.output)
+        write!(f, "{}|{}", self.rule, self.output.as_bytes().escape_ascii())
     }
 }
 
@@ -47,13 +44,5 @@ impl Display for ActionOutputLabel
     fn fmt(&self, f: &mut Formatter) -> Result
     {
         write!(f, "{}|{}", self.action, self.output)
-    }
-}
-
-impl Display for Basename
-{
-    fn fmt(&self, f: &mut Formatter) -> Result
-    {
-        Display::fmt(&self.inner.as_bytes().escape_ascii(), f)
     }
 }

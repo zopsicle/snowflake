@@ -6,6 +6,7 @@
 #![warn(missing_docs)]
 
 pub mod action;
+pub mod basename;
 pub mod hash;
 pub mod label;
 pub mod state;
