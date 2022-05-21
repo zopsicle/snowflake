@@ -1,59 +1,52 @@
 //! Embeddable programming language.
-//!
-//! Sekka source code is parsed and compiled into bytecode.
-//! Bytecode is subsequently translated to Lua source code.
-//! A Lua interpreter then executes the Lua source code.
-//! This use of Lua is a temporary measure and an implementation detail.
-//! It is in no way possible for Sekka embedders to access the Lua state.
-//! A future version will not use Lua, and will interpret bytecode directly.
 
 #![warn(missing_docs)]
 
-use {std::ffi::CStr, thiserror::Error};
+use {
+    self::fiber::Fiber,
+    std::{
+        collections::HashMap,
+        sync::{Mutex, atomic::{AtomicU64, Ordering::SeqCst}},
+    },
+};
 
-pub mod bytecode;
+mod bytecode;
+mod fiber;
+mod interpret;
+mod value;
 
-mod lower;
-mod lua;
+/// Identifies a fiber.
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+pub struct FiberId(u64);
 
-pub type Result<T> =
-    std::result::Result<T, Error>;
-
-#[derive(Debug, Error)]
-pub enum Error
-{
-    #[error("Lua: {0}")]
-    Lua(#[from] lua::Error),
-}
-
-/// Sekka virtual machine.
+/// Sekka virtual machine state.
 pub struct Sekka
 {
-    lua: lua::State,
+    fibers: Mutex<HashMap<FiberId, Mutex<Fiber>>>,
+    next_fiber_id: AtomicU64,
 }
 
 impl Sekka
 {
     /// Create a new virtual machine.
-    pub fn new() -> Result<Self>
+    ///
+    /// The virtual machine starts with no fibers.
+    pub fn new() -> Self
     {
-        let lua = lua::State::newstate()?;
-
-        static RUNTIME: &[u8] = include_bytes!("runtime.lua");
-        lua.do_string(CStr::from_bytes_with_nul(b"runtime.lua\0").unwrap(), RUNTIME)?;
-
-        Ok(Self{lua})
+        Self{
+            fibers: Mutex::new(HashMap::new()),
+            next_fiber_id: AtomicU64::new(0),
+        }
     }
-}
 
-#[cfg(test)]
-mod tests
-{
-    use super::*;
-
-    #[test]
-    fn f()
+    /// Spawn a fiber.
+    ///
+    /// The fiber starts with an empty call stack.
+    pub fn spawn(&self) -> FiberId
     {
-        let _sekka = Sekka::new().unwrap();
+        let id = FiberId(self.next_fiber_id.fetch_add(1, SeqCst));
+        let mut fibers = self.fibers.lock().unwrap();
+        fibers.insert(id, Mutex::new(Fiber::new()));
+        id
     }
 }
