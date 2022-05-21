@@ -3,5 +3,11 @@ name = "sekka"
 version = "0.0.0"
 edition = "2021"
 
+[dependencies.libc]
+version = "~0.2.125"
+
 [dependencies.lua-sys]
 path = "../common/lua-sys"
+
+[dependencies.thiserror]
+version = "^1.0.31"

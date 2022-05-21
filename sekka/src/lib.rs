@@ -7,45 +7,42 @@
 //! It is in no way possible for Sekka embedders to access the Lua state.
 //! A future version will not use Lua, and will interpret bytecode directly.
 
-#![feature(let_else)]
 #![warn(missing_docs)]
 
-use {
-    lua_sys::{lua_State, luaL_newstate, lua_close},
-    std::{alloc::{Layout, handle_alloc_error}, ptr::NonNull},
-};
+use {std::ffi::CStr, thiserror::Error};
 
 pub mod bytecode;
 
 mod lower;
+mod lua;
+
+pub type Result<T> =
+    std::result::Result<T, Error>;
+
+#[derive(Debug, Error)]
+pub enum Error
+{
+    #[error("Lua: {0}")]
+    Lua(#[from] lua::Error),
+}
 
 /// Sekka virtual machine.
 pub struct Sekka
 {
-    lua: NonNull<lua_State>,
+    lua: lua::State,
 }
 
 impl Sekka
 {
     /// Create a new virtual machine.
-    pub fn new() -> Self
+    pub fn new() -> Result<Self>
     {
-        // SAFETY: This function is always safe to call.
-        let lua = unsafe { luaL_newstate() };
+        let lua = lua::State::newstate()?;
 
-        let Some(lua) = NonNull::new(lua)
-            // We have to pass a layout to handle_alloc_error.
-            else { handle_alloc_error(Layout::new::<()>()) };
+        static RUNTIME: &[u8] = include_bytes!("runtime.lua");
+        lua.do_string(CStr::from_bytes_with_nul(b"runtime.lua\0").unwrap(), RUNTIME)?;
 
-        Self{lua}
-    }
-}
-
-impl Drop for Sekka
-{
-    fn drop(&mut self)
-    {
-        unsafe { lua_close(self.lua.as_ptr()); }
+        Ok(Self{lua})
     }
 }
 
@@ -57,6 +54,6 @@ mod tests
     #[test]
     fn f()
     {
-        let _sekka = Sekka::new();
+        let _sekka = Sekka::new().unwrap();
     }
 }

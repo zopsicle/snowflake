@@ -59,7 +59,9 @@ version = "0.0.0"
 name = "sekka"
 version = "0.0.0"
 dependencies = [
+ "libc",
  "lua-sys",
+ "thiserror",
 ]
 
 [[package]]

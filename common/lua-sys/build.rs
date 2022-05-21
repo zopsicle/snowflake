@@ -12,6 +12,7 @@ fn main()
     println!("cargo:rerun-if-changed={in_path}");
 
     Command::new("bindgen")
+        .arg("--default-macro-constant-type").arg("signed")
         .arg("--no-layout-tests")
         .arg("--output").arg(out_path)
         .arg(in_path)
