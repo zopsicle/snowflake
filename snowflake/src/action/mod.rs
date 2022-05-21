@@ -4,7 +4,7 @@ pub use self::graph::*;
 
 use {
     crate::{basename::Basename, hash::Blake3, label::ActionOutputLabel},
-    std::{collections::BTreeMap, ffi::CString, sync::Arc},
+    std::{collections::BTreeMap, ffi::CString, num::NonZeroU32, sync::Arc},
 };
 
 mod graph;
@@ -82,10 +82,28 @@ impl Action
     pub fn inputs(&self) -> impl Iterator<Item=&ActionOutputLabel>
     {
         match self {
-            Self::CreateSymbolicLink{..} => None.into_iter().flatten(),
-            Self::WriteRegularFile{..} => None.into_iter().flatten(),
+            Self::CreateSymbolicLink{..} =>
+                None.into_iter().flatten(),
+            Self::WriteRegularFile{..} =>
+                None.into_iter().flatten(),
             Self::RunCommand{inputs, ..} =>
                 Some(inputs.values()).into_iter().flatten(),
+        }
+    }
+
+    /// The number of outputs of this action.
+    pub fn outputs(&self) -> NonZeroU32
+    {
+        match self {
+            Self::CreateSymbolicLink{..} =>
+                NonZeroU32::new(1).unwrap(),
+            Self::WriteRegularFile{..} =>
+                NonZeroU32::new(1).unwrap(),
+            Self::RunCommand{outputs, ..} => {
+                let n = outputs.len().try_into()
+                    .expect("Action has too many outputs");
+                NonZeroU32::new(n).expect("Action has no outputs")
+            },
         }
     }
 }
