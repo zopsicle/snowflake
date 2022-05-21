@@ -11,9 +11,11 @@ mod graph;
 
 /// How to produce outputs given some configuration and inputs.
 ///
-/// An action consists of configuration and inputs.
-/// Configuration is all the parameters that do not depend on inputs.
+/// An action consists of configuration and action graph structure.
+/// Configuration is static information; it does not change
+/// based on the output of the action's dependencies.
 /// Inputs are outputs of other actions that must be built first.
+/// Output labels form the edges of the [action graph][`ActionGraph`].
 /// The different types of actions and their parameters
 /// are documented in detail in the manual.
 #[allow(missing_docs)]
@@ -29,6 +31,8 @@ pub enum Action
     },
 
     RunCommand{
+        // Using a B-tree ensures a stable ordering,
+        // which is important for the configuration hash.
         inputs: BTreeMap<Arc<Basename>, ActionOutputLabel>,
         outputs: BTreeMap<Arc<Basename>, u32>,
     },
