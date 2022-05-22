@@ -12,9 +12,8 @@ in
         # Tools available in Nix shell.
         nativeBuildInputs = [
             nixpkgs.cacert
-            nixpkgs.pkg-config
             nixpkgs.python3Packages.sphinx
-            nixpkgs.spidermonkey_91.dev
+            nixpkgs.v8
             rustChannel.rust
         ];
 

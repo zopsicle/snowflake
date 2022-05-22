@@ -1,7 +1,13 @@
-use {snowflake::{action::*, basename::*, label::*}, std::sync::Arc};
+use {
+    sekka::Isolate,
+    snowflake::{action::*, basename::*, label::*},
+    std::sync::Arc,
+};
 
 fn main()
 {
+    let _sekka = Isolate::new();
+
     let ps = PackageLabel{segments: vec![].into()};
 
     let rsx = RuleLabel{package: ps.clone(), rule: "x".into()};

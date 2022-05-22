@@ -6,8 +6,5 @@ edition = "2021"
 [build-dependencies.cc]
 version = "^1.0.73"
 
-[build-dependencies.pkg-config]
-version = "~0.3.25"
-
 [dependencies.libc]
 version = "~0.2.125"
