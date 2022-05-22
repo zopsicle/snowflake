@@ -53,7 +53,7 @@ impl<'a> Lexer<'a>
         loop {
             match self.chars.next() {
                 None            => break Err(Error::UnterminatedStringLiteral),
-                Some((_, '\'')) => break Ok(Token::StringLiteral(string)),
+                Some((_, '\'')) => break Ok(Token::StringLiteral(string.into())),
                 Some((_, c))    => {
                     let mut utf8 = [0; 4];
                     let utf8 = c.encode_utf8(&mut utf8);

@@ -1,4 +1,4 @@
-use {super::super::location::Location, std::fmt};
+use {super::super::location::Location, std::{fmt, sync::Arc}};
 
 /// Token along with its location.
 #[allow(missing_docs)]
@@ -20,7 +20,7 @@ pub enum Token
     ///
     /// The contained string is the actual string value;
     /// any escape sequences have already been resolved.
-    StringLiteral(Vec<u8>),
+    StringLiteral(Arc<[u8]>),
 }
 
 impl fmt::Display for Token

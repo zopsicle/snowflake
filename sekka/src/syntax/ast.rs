@@ -1,6 +1,6 @@
 //! Abstract syntax tree data types.
 
-use super::location::Location;
+use {super::location::Location, std::sync::Arc};
 
 /// Expression.
 #[allow(missing_docs)]
@@ -24,6 +24,6 @@ pub enum Expression<'a>
     /// `'foo'`
     StringLiteral{
         location: Location,
-        value: Vec<u8>,
+        value: Arc<[u8]>,
     },
 }

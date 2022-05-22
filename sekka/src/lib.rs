@@ -4,6 +4,7 @@
 
 use self::backend::Backend;
 
+pub mod ir;
 pub mod syntax;
 
 mod backend;
