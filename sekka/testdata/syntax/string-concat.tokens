@@ -1,0 +1,42 @@
+Ok(
+    [
+        Lexeme {
+            location: Location(0),
+            token: StringLiteral(
+                [
+                    102,
+                    111,
+                    111,
+                ],
+            ),
+        },
+        Lexeme {
+            location: Location(6),
+            token: Tilde,
+        },
+        Lexeme {
+            location: Location(8),
+            token: StringLiteral(
+                [
+                    98,
+                    97,
+                    114,
+                ],
+            ),
+        },
+        Lexeme {
+            location: Location(14),
+            token: Tilde,
+        },
+        Lexeme {
+            location: Location(16),
+            token: StringLiteral(
+                [
+                    98,
+                    97,
+                    122,
+                ],
+            ),
+        },
+    ],
+)

@@ -4,6 +4,8 @@
 
 use self::backend::Backend;
 
+pub mod syntax;
+
 mod backend;
 
 /// Sekka virtual machine with its own garbage-collected heap.

@@ -8,3 +8,9 @@ version = "^1.0.73"
 
 [dependencies.libc]
 version = "~0.2.125"
+
+[dependencies.thiserror]
+version = "^1.0.31"
+
+[dependencies.typed-arena]
+version = "^2.0.1"

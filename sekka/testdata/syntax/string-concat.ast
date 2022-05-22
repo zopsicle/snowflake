@@ -1,0 +1,32 @@
+Ok(
+    StringConcatenate {
+        left: StringConcatenate {
+            left: StringLiteral {
+                location: Location(0),
+                value: [
+                    102,
+                    111,
+                    111,
+                ],
+            },
+            tilde: Location(6),
+            right: StringLiteral {
+                location: Location(8),
+                value: [
+                    98,
+                    97,
+                    114,
+                ],
+            },
+        },
+        tilde: Location(14),
+        right: StringLiteral {
+            location: Location(16),
+            value: [
+                98,
+                97,
+                122,
+            ],
+        },
+    },
+)
