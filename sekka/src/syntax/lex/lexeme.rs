@@ -14,6 +14,7 @@ pub struct Lexeme
 pub enum Token
 {
     /** `+` */ PlusSign,
+    /** `;` */ Semicolon,
     /** `~` */ Tilde,
 
     /// String literal.
@@ -29,6 +30,7 @@ impl fmt::Display for Token
     {
         match self {
             Self::PlusSign          => write!(f, "`+`"),
+            Self::Semicolon         => write!(f, "`;`"),
             Self::Tilde             => write!(f, "`~`"),
             Self::StringLiteral(..) => write!(f, "string literal"),
         }

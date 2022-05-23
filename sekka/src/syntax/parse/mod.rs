@@ -14,6 +14,23 @@ mod error;
 #[macro_use]
 mod combinators;
 
+/// Parse a unit.
+pub fn parse_unit<'a>(
+    arenas: &Arenas<'a>,
+    lexemes: &mut Peekable<impl Iterator<Item=lex::Result<Lexeme>>>,
+) -> Result<Unit<'a>>
+{
+    // TODO: Parse many statements.
+    let expression = parse_expression(arenas, lexemes)?;
+    let semicolon = next(lexemes)?;
+
+    assert!(matches!(semicolon.token, Token::Semicolon));
+    let semicolon = semicolon.location;
+
+    let statement = Statement::Expression{expression, semicolon};
+    Ok(Unit{statements: vec![statement]})
+}
+
 /// Parse an expression.
 pub fn parse_expression<'a>(
     arenas: &Arenas<'a>,

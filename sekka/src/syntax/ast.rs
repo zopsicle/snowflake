@@ -2,6 +2,25 @@
 
 use {super::location::Location, std::sync::Arc};
 
+/// Unit.
+#[derive(Debug)]
+pub struct Unit<'a>
+{
+    pub statements: Vec<Statement<'a>>,
+}
+
+/// Statement.
+#[allow(missing_docs)]
+#[derive(Debug)]
+pub enum Statement<'a>
+{
+    /// `e;`
+    Expression{
+        expression: Expression<'a>,
+        semicolon: Location,
+    },
+}
+
 /// Expression.
 #[allow(missing_docs)]
 #[derive(Debug)]

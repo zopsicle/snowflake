@@ -1,37 +1,7 @@
-use {
-    sekka::{
-        Isolate,
-        ir::{Builder, lower_expression},
-        syntax::{
-            lex::Lexer,
-            location::Location,
-            parse::{Arenas, parse_expression},
-        },
-    },
-    snowflake::{action::*, basename::*, label::*},
-    std::sync::Arc,
-};
+use {snowflake::{action::*, basename::*, label::*}, std::sync::Arc};
 
 fn main()
 {
-    {
-        Arenas::with(|arenas| {
-
-            let lexer = Lexer::new("'a' ~ 'bc' ~ 'def'");
-            let ast = parse_expression(arenas, &mut lexer.peekable()).unwrap();
-
-            let mut b = Builder::new();
-            let result = lower_expression(&mut b, &ast);
-            b.set_location(Location{offset: 0});
-            b.build_return(result);
-            let instructions = b.finish();
-
-            let sekka = Isolate::new();
-            sekka.run(&instructions);
-
-        });
-    }
-
     let ps = PackageLabel{segments: vec![].into()};
 
     let rsx = RuleLabel{package: ps.clone(), rule: "x".into()};

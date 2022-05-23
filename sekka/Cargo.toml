@@ -3,11 +3,12 @@ name = "sekka"
 version = "0.0.0"
 edition = "2021"
 
-[build-dependencies.cc]
-version = "^1.0.73"
-
-[dependencies.libc]
-version = "~0.2.125"
+[dependencies.smallvec]
+features = [
+    "const_generics",
+    "union",
+]
+version = "^1.8.0"
 
 [dependencies.thiserror]
 version = "^1.0.31"

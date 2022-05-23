@@ -41,6 +41,7 @@ impl<'a> Lexer<'a>
     fn read_token(&mut self, c: char) -> Result<Token>
     {
         match c {
+            ';'  => Ok(Token::Semicolon),
             '~'  => Ok(Token::Tilde),
             '\'' => self.read_single_quoted_string_literal(),
             _    => Err(Error::InvalidToken(c)),

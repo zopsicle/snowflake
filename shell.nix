@@ -13,7 +13,6 @@ in
         nativeBuildInputs = [
             nixpkgs.cacert
             nixpkgs.python3Packages.sphinx
-            nixpkgs.v8
             rustChannel.rust
         ];
 
