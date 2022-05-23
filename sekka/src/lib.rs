@@ -23,4 +23,22 @@ impl Isolate
     {
         Self{backend: Backend::new()}
     }
+
+    pub fn run(
+        &self,
+        instructions: &[
+            (
+                syntax::location::Location,
+                ir::Register,
+                ir::Instruction,
+            )
+        ],
+    )
+    {
+        let mut w = String::new();
+        for (_location, result, instruction) in instructions {
+            backend::lower::lower_instruction(&mut w, *result, instruction);
+        }
+        println!("{}", w);
+    }
 }

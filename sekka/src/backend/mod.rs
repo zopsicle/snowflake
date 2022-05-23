@@ -8,6 +8,8 @@
 
 use std::{lazy::SyncOnceCell, panic::{RefUnwindSafe, UnwindSafe}, ptr::NonNull};
 
+pub mod lower;
+
 extern "C"
 {
     type SekkaBackend;
