@@ -9,4 +9,5 @@ cargo doc
 # -a:           Disable cache (it doesn't work well).
 # -W:           Treat warnings as errors, as they're quite serious.
 # --keep-going: Keep emitting warnings after the first one.
+sphinx-build -a -W --keep-going sekka-manual target/sekka-manual
 sphinx-build -a -W --keep-going snowflake-manual target/snowflake-manual
