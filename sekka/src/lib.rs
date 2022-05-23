@@ -1,3 +1,4 @@
+#![doc(html_logo_url = "/sekka-manual/_static/logo.svg")]
 #![feature(extern_types)]
 #![feature(once_cell)]
 #![warn(missing_docs)]
