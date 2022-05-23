@@ -2,11 +2,18 @@
 
 use {super::location::Location, std::sync::Arc};
 
-/// Unit.
+/// Definition.
+#[allow(missing_docs)]
 #[derive(Debug)]
-pub struct Unit<'a>
+pub enum Definition<'a>
 {
-    pub statements: Vec<Statement<'a>>,
+    /// `INIT { ... }`
+    InitPhaser{
+        init_keyword: Location,
+        left_brace: Location,
+        body: &'a [Statement<'a>],
+        right_brace: Location,
+    },
 }
 
 /// Statement.

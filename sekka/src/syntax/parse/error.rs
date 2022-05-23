@@ -12,8 +12,14 @@ pub enum Error
     #[error("{0}")]
     Lex(#[from] lex::Error),
 
+    #[error("Expected statement, got {1}")]
+    ExpectedStatement(Location, Token),
+
     #[error("Expected expression, got {1}")]
     ExpectedExpression(Location, Token),
+
+    #[error("Expected {1}, got {2}")]
+    ExpectedToken(Location, Token, Token),
 
     #[error("Unexpected end of file")]
     UnexpectedEof,

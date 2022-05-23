@@ -68,6 +68,41 @@ macro_rules! next_if_matches
     };
 }
 
+/// Read a lexeme and assert it has the given token.
+pub fn expect(
+    lexemes: &mut impl Iterator<Item=lex::Result<Lexeme>>,
+    expected: Token,
+) -> Result<Location>
+{
+    let Lexeme{location, token} = next(lexemes)?;
+    if token == expected {
+        Ok(location)
+    } else {
+        return Err(Error::ExpectedToken(location, expected, token));
+    }
+}
+
+/// Repeatedly parse elements the given end token is encountered.
+///
+/// The end token is also consumed, and its location return.
+pub fn many_until<I, F, R>(
+    lexemes: &mut Peekable<I>,
+    mut element: F,
+    end: Token,
+) -> Result<(Vec<R>, Location)>
+    where I: Iterator<Item=lex::Result<Lexeme>>
+        , F: FnMut(&mut Peekable<I>) -> Result<R>
+{
+    let mut elements = Vec::new();
+    loop {
+        if let Some(end) = next_if(lexemes, |token| token == &end)? {
+            break Ok((elements, end));
+        }
+        let element = element(lexemes)?;
+        elements.push(element);
+    }
+}
+
 /// Parse left-associative binary operators at the same precedence.
 macro_rules! left_associative
 {

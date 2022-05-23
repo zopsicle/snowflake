@@ -1,0 +1,47 @@
+Ok(
+    [
+        InitPhaser {
+            init_keyword: Location(0),
+            left_brace: Location(5),
+            body: [
+                Expression {
+                    expression: StringConcatenate {
+                        left: StringConcatenate {
+                            left: StringLiteral {
+                                location: Location(7),
+                                value: [
+                                    97,
+                                ],
+                            },
+                            tilde: Location(11),
+                            right: StringLiteral {
+                                location: Location(13),
+                                value: [
+                                    98,
+                                ],
+                            },
+                        },
+                        tilde: Location(17),
+                        right: StringLiteral {
+                            location: Location(19),
+                            value: [
+                                99,
+                            ],
+                        },
+                    },
+                    semicolon: Location(22),
+                },
+                Expression {
+                    expression: StringLiteral {
+                        location: Location(24),
+                        value: [
+                            100,
+                        ],
+                    },
+                    semicolon: Location(27),
+                },
+            ],
+            right_brace: Location(29),
+        },
+    ],
+)

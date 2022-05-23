@@ -42,9 +42,33 @@ impl<'a> Lexer<'a>
     {
         match c {
             ';'  => Ok(Token::Semicolon),
+            '{'  => Ok(Token::LeftCurlyBracket),
+            '}'  => Ok(Token::RightCurlyBracket),
             '~'  => Ok(Token::Tilde),
+            c if Self::is_identifier_start(c) =>
+                Ok(self.read_identifier_or_keyword(c)),
             '\'' => self.read_single_quoted_string_literal(),
             _    => Err(Error::InvalidToken(c)),
+        }
+    }
+
+    fn read_identifier_or_keyword(&mut self, c: char) -> Token
+    {
+        let identifier = self.read_identifier(c);
+        match identifier.as_ref() {
+            "INIT" => Token::InitKeyword,
+            _      => Token::Identifier(identifier.into()),
+        }
+    }
+
+    fn read_identifier(&mut self, c: char) -> String
+    {
+        let mut identifier = String::from(c);
+        loop {
+            match self.chars.next_if(|&(_, c)| Self::is_identifier_continue(c)) {
+                None         => break identifier,
+                Some((_, c)) => identifier.push(c),
+            }
         }
     }
 
@@ -67,6 +91,16 @@ impl<'a> Lexer<'a>
     fn is_whitespace(c: char) -> bool
     {
         matches!(c, ' ' | '\t' | '\r' | '\n')
+    }
+
+    fn is_identifier_start(c: char) -> bool
+    {
+        matches!(c, 'a' ..= 'z' | 'A' ..= 'Z' | '_')
+    }
+
+    fn is_identifier_continue(c: char) -> bool
+    {
+        matches!(c, 'a' ..= 'z' | 'A' ..= 'Z' | '0' ..= '9' | '_')
     }
 }
 

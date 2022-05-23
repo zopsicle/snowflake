@@ -10,12 +10,19 @@ pub struct Lexeme
 }
 
 /// Structured information about a lexeme.
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum Token
 {
     /** `+` */ PlusSign,
     /** `;` */ Semicolon,
+    /** `{` */ LeftCurlyBracket,
+    /** `}` */ RightCurlyBracket,
     /** `~` */ Tilde,
+
+    /** `INIT` */ InitKeyword,
+
+    /// Identifier.
+    Identifier(Arc<str>),
 
     /// String literal.
     ///
@@ -31,7 +38,11 @@ impl fmt::Display for Token
         match self {
             Self::PlusSign          => write!(f, "`+`"),
             Self::Semicolon         => write!(f, "`;`"),
+            Self::LeftCurlyBracket  => write!(f, "`{{`"),
+            Self::RightCurlyBracket => write!(f, "`}}`"),
             Self::Tilde             => write!(f, "`~`"),
+            Self::InitKeyword       => write!(f, "`INIT`"),
+            Self::Identifier(..)    => write!(f, "identifier"),
             Self::StringLiteral(..) => write!(f, "string literal"),
         }
     }
