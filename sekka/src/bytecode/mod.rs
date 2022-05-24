@@ -98,9 +98,70 @@ pub enum Instruction
     Throw{exception: Register},
 }
 
+impl Instruction
+{
+    /// Whether the instruction is a terminator.
+    ///
+    /// A terminator unconditionally transfers control;
+    /// it never continues to the subsequent instruction
+    /// (except if it's a jump equivalent to a no-op).
+    pub fn is_terminator(&self) -> bool
+    {
+        match self {
+            // Terminators.
+            Self::Return{..} => true,
+            Self::Throw{..} => true,
+
+            // Non-terminators.
+            Self::LoadConstant{..}      => false,
+            Self::LoadUndef{..}         => false,
+            Self::StringConcatenate{..} => false,
+        }
+    }
+
+    /// The registers used by the instruction.
+    ///
+    /// The returned iterator yields the registers in arbitrary order.
+    /// It yields the same register multiple times
+    /// if it appears multiple times in the instruction.
+    pub fn registers(&self) -> impl Iterator<Item=Register>
+    {
+        macro_rules! chain
+        {
+            ($sub:expr $(, $subs:expr)* $(,)?) => {
+                IntoIterator::into_iter($sub)$(.chain($subs))*
+            };
+        }
+        match *self {
+            Self::LoadConstant{target, constant: _} =>
+                chain!(Some(target), None, None),
+            Self::LoadUndef{target} =>
+                chain!(Some(target), None, None),
+            Self::StringConcatenate{target, left, right} =>
+                chain!(Some(target), Some(left), Some(right)),
+            Self::Return{result} =>
+                chain!(Some(result), None, None),
+            Self::Throw{exception} =>
+                chain!(Some(exception), None, None),
+        }
+    }
+}
+
 /* -------------------------------------------------------------------------- */
 /*                            Debug implementations                           */
 /* -------------------------------------------------------------------------- */
+
+impl fmt::Debug for Procedure
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        f.debug_struct("Procedure")
+            .field("max_register", &self.max_register)
+            .field("instructions", &self.instructions)
+            .field("locations", &self.locations)
+            .finish()
+    }
+}
 
 impl fmt::Debug for Constant
 {

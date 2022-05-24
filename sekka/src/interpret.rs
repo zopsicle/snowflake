@@ -29,13 +29,17 @@ pub enum CallStackDelta
 ///
 /// There must be sufficient registers.
 /// The instructions must not jump out of bounds.
-/// The instructions must not refer to out of bounds constants.
 pub unsafe fn interpret(
     unit: &Unit,
     registers: *mut Value,
     mut program_counter: *const Instruction,
 ) -> CallStackDelta
 {
+    // NOTE: Keep in mind that the bytecode may come from user input,
+    //       so this function should not require more than Verified::verify!
+
+    // NOTE: When adding safety requirements, update Verified::verify!
+
     let move_register = |register: Register| {
         let register = &mut *registers.add(register.0 as usize);
         replace(register, Value::undef())
@@ -58,8 +62,10 @@ pub unsafe fn interpret(
         match &*program_counter {
 
             Instruction::LoadConstant{target, constant} => {
-                let constant = constant.0 as usize;
-                let constant = unit.constants.get_unchecked(constant);
+                // Verification does not currently check that
+                // access to constants is in bounds,
+                // so we cannot use get_unchecked here.
+                let constant = &unit.constants[constant.0 as usize];
                 set_register(*target, constant.clone());
                 program_counter = program_counter.add(1);
             },

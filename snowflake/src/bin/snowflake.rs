@@ -7,9 +7,7 @@ fn main()
     println!("{:?}", unit.init_phasers);
     println!("{:?}", unit.globals);
     let (_, procedure) = unit.constants[0].clone().to_subroutine().unwrap();
-    println!("{:#?}", procedure.max_register);
-    println!("{:#?}", procedure.instructions);
-    println!("{:#?}", procedure.locations);
+    println!("{:#?}", procedure);
 
     let ps = PackageLabel{segments: vec![].into()};
 
