@@ -1,4 +1,8 @@
-use {std::{error::Error, sync::Arc}, thiserror::Error};
+use {
+    crate::bytecode::Unit,
+    std::{error::Error, sync::{Arc, Weak}},
+    thiserror::Error,
+};
 
 #[derive(Clone)]
 pub struct Value
@@ -15,9 +19,19 @@ enum Inner
     // any length fields to u32::MAX using assertions.
 
     Undef,
+
     Boolean(bool),
+
     String(Arc<[u8]>),
+
     Error(Arc<dyn 'static + Error + Send + Sync>),
+
+    Subroutine{
+        environment: Arc<[Value]>,
+        unit: Weak<Unit>,
+        // INVARIANT: Smaller than unit.procedures.len().
+        procedure: usize,
+    },
 }
 
 impl Value
@@ -51,6 +65,20 @@ impl Value
         Self{inner: Inner::Error(Arc::new(error))}
     }
 
+    /// Create a subroutine value from an environment and a procedure.
+    ///
+    /// # Safety
+    ///
+    /// The procedure index must be in bounds.
+    pub fn subroutine_from_environment_and_procedure(
+        environment: Arc<[Value]>,
+        unit: Weak<Unit>,
+        procedure: usize,
+    ) -> Self
+    {
+        Self{inner: Inner::Subroutine{environment, unit, procedure}}
+    }
+
     pub fn to_string(self) -> Result<Arc<[u8]>, ToStringError>
     {
         match self.inner {
@@ -65,6 +93,8 @@ impl Value
                 Ok(bytes),
             Inner::Error(error) =>
                 Ok(error.to_string().into_bytes().into()),
+            Inner::Subroutine{..} =>
+                Err(ToStringError::Subroutine),
         }
     }
 }
@@ -94,4 +124,7 @@ pub enum ToStringError
 {
     #[error("Use of undef in string context")]
     Undef,
+
+    #[error("Use of subroutine in string context")]
+    Subroutine,
 }
