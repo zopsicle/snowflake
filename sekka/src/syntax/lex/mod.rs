@@ -41,6 +41,8 @@ impl<'a> Lexer<'a>
     fn read_token(&mut self, c: char) -> Result<Token>
     {
         match c {
+            '('  => Ok(Token::LeftParenthesis),
+            ')'  => Ok(Token::RightParenthesis),
             ';'  => Ok(Token::Semicolon),
             '{'  => Ok(Token::LeftCurlyBracket),
             '}'  => Ok(Token::RightCurlyBracket),
@@ -57,6 +59,7 @@ impl<'a> Lexer<'a>
         let identifier = self.read_identifier(c);
         match identifier.as_ref() {
             "INIT" => Token::InitKeyword,
+            "sub"  => Token::SubKeyword,
             _      => Token::Identifier(identifier.into()),
         }
     }

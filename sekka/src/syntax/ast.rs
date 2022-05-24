@@ -10,9 +10,21 @@ pub enum Definition<'a>
     /// `INIT { ... }`
     InitPhaser{
         init_keyword: Location,
-        left_brace: Location,
+        left_curly_bracket: Location,
         body: &'a [Statement<'a>],
-        right_brace: Location,
+        right_curly_bracket: Location,
+    },
+
+    /// `sub f(...) { ... }`
+    Subroutine{
+        sub_keyword: Location,
+        name_location: Location,
+        name: Arc<str>,
+        left_parenthesis: Location,
+        right_parenthesis: Location,
+        left_curly_bracket: Location,
+        body: &'a [Statement<'a>],
+        right_curly_bracket: Location,
     },
 }
 

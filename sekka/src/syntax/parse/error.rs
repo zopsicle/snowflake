@@ -18,6 +18,9 @@ pub enum Error
     #[error("Expected expression, got {1}")]
     ExpectedExpression(Location, Token),
 
+    #[error("Expected identifier, got {1}")]
+    ExpectedIdentifier(Location, Token),
+
     #[error("Expected {1}, got {2}")]
     ExpectedToken(Location, Token, Token),
 

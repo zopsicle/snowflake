@@ -82,6 +82,18 @@ pub fn expect(
     }
 }
 
+/// Read a lexeme and assert that it matches a pattern.
+macro_rules! expect_match
+{
+    ($lexemes:expr, $pattern:pat => $result:expr, _ => $error:path $(,)?) => {{
+        let Lexeme{location, token} = next($lexemes)?;
+        match token {
+            $pattern => Ok((location, $result)),
+            _ => Err($error(location, token)),
+        }
+    }};
+}
+
 /// Repeatedly parse elements the given end token is encountered.
 ///
 /// The end token is also consumed, and its location return.

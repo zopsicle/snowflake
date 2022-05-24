@@ -1,0 +1,76 @@
+Ok(
+    [
+        InitPhaser {
+            init_keyword: Location(0),
+            left_curly_bracket: Location(5),
+            body: [
+                Expression {
+                    expression: StringConcatenate {
+                        left: StringConcatenate {
+                            left: StringLiteral {
+                                location: Location(11),
+                                value: [
+                                    97,
+                                ],
+                            },
+                            tilde: Location(15),
+                            right: StringLiteral {
+                                location: Location(17),
+                                value: [
+                                    98,
+                                ],
+                            },
+                        },
+                        tilde: Location(21),
+                        right: StringLiteral {
+                            location: Location(23),
+                            value: [
+                                99,
+                            ],
+                        },
+                    },
+                    semicolon: Location(26),
+                },
+                Expression {
+                    expression: StringLiteral {
+                        location: Location(32),
+                        value: [
+                            100,
+                        ],
+                    },
+                    semicolon: Location(35),
+                },
+            ],
+            right_curly_bracket: Location(37),
+        },
+        Subroutine {
+            sub_keyword: Location(40),
+            name_location: Location(44),
+            name: "foo",
+            left_parenthesis: Location(47),
+            right_parenthesis: Location(48),
+            left_curly_bracket: Location(50),
+            body: [
+                Expression {
+                    expression: StringLiteral {
+                        location: Location(56),
+                        value: [
+                            97,
+                        ],
+                    },
+                    semicolon: Location(59),
+                },
+                Expression {
+                    expression: StringLiteral {
+                        location: Location(65),
+                        value: [
+                            98,
+                        ],
+                    },
+                    semicolon: Location(68),
+                },
+            ],
+            right_curly_bracket: Location(70),
+        },
+    ],
+)
