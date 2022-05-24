@@ -1,9 +1,12 @@
+//! Bytecode instructions and procedures.
+
 pub use self::verify::*;
 
-use {crate::value::Value, std::{path::PathBuf, sync::Weak}};
+use {crate::value::Value, std::path::PathBuf};
 
 mod verify;
 
+/// Compiled unit.
 pub struct Unit
 {
     /// Filepath from which the unit was compiled.
@@ -17,11 +20,14 @@ pub struct Unit
     pub procedures: Vec<Verified>,
 }
 
+/// Sequence of instructions with metadata.
 pub struct Procedure
 {
+    /// The instructions of the procedure.
     pub instructions: Vec<Instruction>,
 }
 
+/// Identifies an on-stack storage location.
 #[derive(Clone, Copy)]
 pub struct Register(pub u16);
 

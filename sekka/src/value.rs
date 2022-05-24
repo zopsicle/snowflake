@@ -1,9 +1,12 @@
+//! Reference-counted Sekka values.
+
 use {
     crate::bytecode::Unit,
     std::{error::Error, sync::{Arc, Weak}},
     thiserror::Error,
 };
 
+/// Reference-counted Sekka value.
 #[derive(Clone)]
 pub struct Value
 {
@@ -79,6 +82,7 @@ impl Value
         Self{inner: Inner::Subroutine{environment, unit, procedure}}
     }
 
+    /// Convert the value to a string.
     pub fn to_string(self) -> Result<Arc<[u8]>, ToStringError>
     {
         match self.inner {
@@ -115,10 +119,13 @@ macro_rules! string_from_format
     };
 }
 
+/// Error returned by [`Value::string_from_bytes`].
 #[derive(Debug, Error)]
 #[error("String value would be too large")]
 pub struct StringFromBytesError;
 
+/// Error returned by [`Value::to_string`].
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum ToStringError
 {

@@ -1,3 +1,5 @@
+//! Sekka programming language.
+
 #![doc(html_logo_url = "/sekka-manual/_static/logo.svg")]
 #![feature(get_mut_unchecked)]
 #![feature(maybe_uninit_write_slice)]

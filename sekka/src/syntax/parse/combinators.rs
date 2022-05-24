@@ -18,17 +18,6 @@ pub fn next(lexemes: &mut impl Iterator<Item=lex::Result<Lexeme>>)
     }
 }
 
-/// Read a lexeme but do not consume it.
-pub fn peek(lexemes: &mut Peekable<impl Iterator<Item=lex::Result<Lexeme>>>)
-    -> Result<Option<&Lexeme>>
-{
-    match lexemes.peek() {
-        None             => Ok(None),
-        Some(Err(err))   => Err(err.clone().into()),
-        Some(Ok(lexeme)) => Ok(Some(lexeme)),
-    }
-}
-
 /// Read a lexeme if it matches a predicate.
 pub fn next_if(
     lexemes: &mut Peekable<impl Iterator<Item=lex::Result<Lexeme>>>,

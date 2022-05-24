@@ -1,7 +1,8 @@
+//! Interpreting bytecode.
+
 use {
     crate::{
         bytecode::{Instruction, Register},
-        string_from_format,
         value::{StringFromBytesError, ToStringError, Value},
     },
     std::{mem::{MaybeUninit, replace}, sync::Arc},
