@@ -1,4 +1,4 @@
-use {std::sync::Arc, thiserror::Error};
+use {std::{error::Error, sync::Arc}, thiserror::Error};
 
 #[derive(Clone)]
 pub struct Value
@@ -17,6 +17,7 @@ enum Inner
     Undef,
     Boolean(bool),
     String(Arc<[u8]>),
+    Error(Arc<dyn 'static + Error + Send + Sync>),
 }
 
 impl Value
@@ -43,6 +44,13 @@ impl Value
         Ok(Self{inner: Inner::String(bytes)})
     }
 
+    /// Create an error value from an error.
+    pub fn error_from_error<E>(error: E) -> Self
+        where E: 'static + Error + Send + Sync
+    {
+        Self{inner: Inner::Error(Arc::new(error))}
+    }
+
     pub fn to_string(self) -> Result<Arc<[u8]>, ToStringError>
     {
         match self.inner {
@@ -55,6 +63,8 @@ impl Value
                 },
             Inner::String(bytes) =>
                 Ok(bytes),
+            Inner::Error(error) =>
+                Ok(error.to_string().into_bytes().into()),
         }
     }
 }

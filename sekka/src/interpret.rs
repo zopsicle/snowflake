@@ -2,10 +2,15 @@ use {
     crate::{
         bytecode::{Instruction, Register},
         string_from_format,
-        value::{StringFromBytesError, Value},
+        value::{StringFromBytesError, ToStringError, Value},
     },
     std::{mem::{MaybeUninit, replace}, sync::Arc},
+    thiserror::Error,
 };
+
+/* -------------------------------------------------------------------------- */
+/*                                Interpreting                                */
+/* -------------------------------------------------------------------------- */
 
 /// How to change the call stack after interpreting instructions.
 pub enum CallStackDelta
@@ -62,8 +67,10 @@ pub unsafe fn interpret(
                         set_register(*target, result);
                         program_counter = program_counter.add(1);
                     },
-                    Err(exception) =>
-                        return CallStackDelta::Throw(exception),
+                    Err(error) => {
+                        let exception = Value::error_from_error(error);
+                        return CallStackDelta::Throw(exception);
+                    },
                 }
             },
 
@@ -82,16 +89,35 @@ pub unsafe fn interpret(
     }
 }
 
-fn string_concatenate(left: Value, right: Value) -> Result<Value, Value>
+/* -------------------------------------------------------------------------- */
+/*                              StringConcatenate                             */
+/* -------------------------------------------------------------------------- */
+
+#[derive(Debug, Error)]
+enum StringConcatenateError
 {
+    #[error("In left side of `~`: {0}")]
+    LeftToString(ToStringError),
+
+    #[error("In right side of `~`: {0}")]
+    RightToString(ToStringError),
+
+    #[error("In `~`: {0}")]
+    StringFromBytes(#[from] StringFromBytesError),
+}
+
+fn string_concatenate(left: Value, right: Value)
+    -> Result<Value, StringConcatenateError>
+{
+    type Error = StringConcatenateError;
+
     // Convert left and right operands to strings.
-    let mkerr = |side, err| string_from_format!("In {side} side of `~`: {err}");
-    let left  = left .to_string().map_err(|err| mkerr("left" , err))?;
-    let right = right.to_string().map_err(|err| mkerr("right", err))?;
+    let left  = left .to_string().map_err(Error::LeftToString)?;
+    let right = right.to_string().map_err(Error::RightToString)?;
 
     // Compute length of resulting string.
     let len = usize::checked_add(left.len(), right.len())
-        .ok_or_else(|| string_from_format!("In `~`: {StringFromBytesError}"))?;
+        .ok_or(Error::StringFromBytes(StringFromBytesError))?;
 
     // Create resulting string.
     let bytes = unsafe {
@@ -103,6 +129,5 @@ fn string_concatenate(left: Value, right: Value) -> Result<Value, Value>
     };
 
     // Wrap resulting string in value.
-    Value::string_from_bytes(bytes)
-        .map_err(|err| string_from_format!("In `~`: {err}"))
+    Value::string_from_bytes(bytes).map_err(Error::from)
 }
