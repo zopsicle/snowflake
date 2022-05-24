@@ -7,6 +7,7 @@
 #![warn(missing_docs)]
 
 pub mod bytecode;
+pub mod compile;
 pub mod interpret;
 pub mod syntax;
 pub mod value;

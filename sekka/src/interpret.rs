@@ -2,7 +2,7 @@
 
 use {
     crate::{
-        bytecode::{Instruction, Register},
+        bytecode::{Instruction, Register, Unit},
         value::{StringFromBytesError, ToStringError, Value},
     },
     std::{mem::{MaybeUninit, replace}, sync::Arc},
@@ -29,7 +29,9 @@ pub enum CallStackDelta
 ///
 /// There must be sufficient registers.
 /// The instructions must not jump out of bounds.
+/// The instructions must not refer to out of bounds constants.
 pub unsafe fn interpret(
+    unit: &Unit,
     registers: *mut Value,
     mut program_counter: *const Instruction,
 ) -> CallStackDelta
@@ -56,6 +58,7 @@ pub unsafe fn interpret(
         match &*program_counter {
 
             Instruction::CopyConstant{target, constant} => {
+                let constant = unit.constants.get_unchecked(*constant as usize);
                 set_register(*target, constant.clone());
                 program_counter = program_counter.add(1);
             },

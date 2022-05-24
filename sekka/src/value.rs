@@ -1,8 +1,8 @@
 //! Reference-counted Sekka values.
 
 use {
-    crate::bytecode::Unit,
-    std::{error::Error, sync::{Arc, Weak}},
+    crate::bytecode::Procedure,
+    std::{error::Error, sync::Arc},
     thiserror::Error,
 };
 
@@ -22,19 +22,10 @@ enum Inner
     // any length fields to u32::MAX using assertions.
 
     Undef,
-
     Boolean(bool),
-
     String(Arc<[u8]>),
-
     Error(Arc<dyn 'static + Error + Send + Sync>),
-
-    Subroutine{
-        environment: Arc<[Value]>,
-        unit: Weak<Unit>,
-        // INVARIANT: Smaller than unit.procedures.len().
-        procedure: usize,
-    },
+    Subroutine(Arc<[Value]>, Arc<Procedure>),
 }
 
 impl Value
@@ -68,18 +59,23 @@ impl Value
         Self{inner: Inner::Error(Arc::new(error))}
     }
 
+    /// Create a subroutine value from a procedure.
+    ///
+    /// The environment of the subroutine is left empty,
+    /// so this shall only be used for non-closures.
+    pub fn subroutine_from_procedure(procedure: Arc<Procedure>) -> Self
+    {
+        let environment = Arc::from(&[][..]);
+        Self::subroutine_from_environment_and_procedure(environment, procedure)
+    }
+
     /// Create a subroutine value from an environment and a procedure.
-    ///
-    /// # Safety
-    ///
-    /// The procedure index must be in bounds.
     pub fn subroutine_from_environment_and_procedure(
         environment: Arc<[Value]>,
-        unit: Weak<Unit>,
-        procedure: usize,
+        procedure: Arc<Procedure>,
     ) -> Self
     {
-        Self{inner: Inner::Subroutine{environment, unit, procedure}}
+        Self{inner: Inner::Subroutine(environment, procedure)}
     }
 
     /// Convert the value to a string.

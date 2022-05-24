@@ -2,27 +2,43 @@
 
 pub use self::verify::*;
 
-use {crate::value::Value, std::path::PathBuf};
+use {
+    crate::value::Value,
+    std::{collections::HashMap, path::PathBuf, sync::{Arc, Weak}},
+};
 
 mod verify;
 
-/// Compiled unit.
+/// Information about a compiled unit.
 pub struct Unit
 {
-    /// Filepath from which the unit was compiled.
-    pub filepath: PathBuf,
+    /// Pathname of the file from which the unit was compiled.
+    pub pathname: PathBuf,
 
-    /// Procedures in the unit, in arbitrary order.
+    /// Constants in the unit, in arbitrary order.
     ///
-    /// This includes not only top-level subroutines,
-    /// but also implementations of lambda subroutines.
-    /// Subroutine values refer to procedures by their index.
-    pub procedures: Vec<Verified>,
+    /// These are referred to by [`Instruction::CopyConstant`].
+    pub constants: Vec<Value>,
+
+    /// Array of all init phasers.
+    ///
+    /// Each init phaser is compiled to a nilary subroutine.
+    /// These index into [`constants`][`Self::constants`].
+    pub init_phasers: Vec<u32>,
+
+    /// Map of all globals.
+    ///
+    /// The keys of the map are the names of the globals.
+    /// The values of the map index into [`constants`][`Self::constants`].
+    pub globals: HashMap<Arc<str>, u32>,
 }
 
 /// Sequence of instructions with metadata.
 pub struct Procedure
 {
+    /// The unit to which this procedure belongs.
+    pub unit: Weak<Unit>,
+
     /// The instructions of the procedure.
     pub instructions: Vec<Instruction>,
 }
@@ -36,7 +52,7 @@ pub struct Register(pub u16);
 pub enum Instruction
 {
     /// Copy a constant to a register.
-    CopyConstant{target: Register, constant: Value},
+    CopyConstant{target: Register, constant: u32},
 
     /// Convert the operands to strings and concatenate them.
     StringConcatenate{target: Register, left: Register, right: Register},
