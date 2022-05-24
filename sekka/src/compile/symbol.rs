@@ -1,7 +1,6 @@
 //! Symbols and symbol tables.
 
 use {
-    crate::value::Value,
     std::{collections::{HashMap, hash_map::Entry::*}, sync::Arc},
     thiserror::Error,
 };
@@ -17,21 +16,21 @@ pub struct RedefinitionError(pub Arc<str>);
 /// in the form of a borrowed linked list.
 pub struct SymbolTable<'a>
 {
-    parent: Option<&'a SymbolTable<'a>>,
-    symbols: HashMap<Arc<str>, Symbol>,
-}
+    // If Ok, the parent is another symbol table.
+    // If Err, the parent is the table of globals.
+    parent: Result<&'a SymbolTable<'a>, &'a HashMap<Arc<str>, u32>>,
 
-impl SymbolTable<'static>
-{
-    /// Create a symbol table with no parent.
-    pub fn new_root() -> Self
-    {
-        Self{parent: None, symbols: HashMap::new()}
-    }
+    symbols: HashMap<Arc<str>, Symbol>,
 }
 
 impl<'a> SymbolTable<'a>
 {
+    /// Create a symbol table with the table of globals as its parent.
+    pub fn from_globals(globals: &'a HashMap<Arc<str>, u32>) -> Self
+    {
+        Self{parent: Err(globals), symbols: HashMap::new()}
+    }
+
     /// Define a new symbol in this scope.
     pub fn define(&mut self, name: Arc<str>, symbol: Symbol)
         -> Result<(), RedefinitionError>
@@ -47,7 +46,5 @@ impl<'a> SymbolTable<'a>
 pub enum Symbol
 {
     /// The name was defined as a constant.
-    ///
-    /// This is also used for subroutine definitions.
-    Constant(Value),
+    Constant(u32),
 }

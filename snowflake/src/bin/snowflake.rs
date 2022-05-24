@@ -2,6 +2,15 @@ use {snowflake::{action::*, basename::*, label::*}, std::sync::Arc};
 
 fn main()
 {
+    let source = "INIT { } INIT { } sub f() { 'a' ~ 'b' ~ 'c'; } sub g() { }";
+    let unit = sekka::compile::compile_unit_from_source("".into(), source).unwrap();
+    println!("{:?}", unit.init_phasers);
+    println!("{:?}", unit.globals);
+    let (_, procedure) = unit.constants[0].clone().to_subroutine().unwrap();
+    println!("{:#?}", procedure.max_register);
+    println!("{:#?}", procedure.instructions);
+    println!("{:#?}", procedure.locations);
+
     let ps = PackageLabel{segments: vec![].into()};
 
     let rsx = RuleLabel{package: ps.clone(), rule: "x".into()};

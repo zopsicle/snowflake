@@ -1,7 +1,7 @@
 //! Reference-counted Sekka values.
 
 use {
-    crate::bytecode::Procedure,
+    crate::bytecode::Verified,
     std::{error::Error, sync::Arc},
     thiserror::Error,
 };
@@ -25,7 +25,7 @@ enum Inner
     Boolean(bool),
     String(Arc<[u8]>),
     Error(Arc<dyn 'static + Error + Send + Sync>),
-    Subroutine(Arc<[Value]>, Arc<Procedure>),
+    Subroutine(Arc<[Value]>, Arc<Verified>),
 }
 
 impl Value
@@ -63,7 +63,7 @@ impl Value
     ///
     /// The environment of the subroutine is left empty,
     /// so this shall only be used for non-closures.
-    pub fn subroutine_from_procedure(procedure: Arc<Procedure>) -> Self
+    pub fn subroutine_from_procedure(procedure: Arc<Verified>) -> Self
     {
         let environment = Arc::from(&[][..]);
         Self::subroutine_from_environment_and_procedure(environment, procedure)
@@ -72,7 +72,7 @@ impl Value
     /// Create a subroutine value from an environment and a procedure.
     pub fn subroutine_from_environment_and_procedure(
         environment: Arc<[Value]>,
-        procedure: Arc<Procedure>,
+        procedure: Arc<Verified>,
     ) -> Self
     {
         Self{inner: Inner::Subroutine(environment, procedure)}
@@ -95,6 +95,15 @@ impl Value
                 Ok(error.to_string().into_bytes().into()),
             Inner::Subroutine{..} =>
                 Err(ToStringError::Subroutine),
+        }
+    }
+
+    /// Convert the value to a subroutine.
+    pub fn to_subroutine(self) -> Result<(Arc<[Value]>, Arc<Verified>), ()>
+    {
+        match self.inner {
+            Inner::Subroutine(e, p) => Ok((e, p)),
+            _ => Err(()),
         }
     }
 }

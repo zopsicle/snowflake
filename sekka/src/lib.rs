@@ -11,3 +11,5 @@ pub mod compile;
 pub mod interpret;
 pub mod syntax;
 pub mod value;
+
+mod util;

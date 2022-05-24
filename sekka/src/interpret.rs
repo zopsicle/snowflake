@@ -57,9 +57,15 @@ pub unsafe fn interpret(
 
         match &*program_counter {
 
-            Instruction::CopyConstant{target, constant} => {
-                let constant = unit.constants.get_unchecked(*constant as usize);
+            Instruction::LoadConstant{target, constant} => {
+                let constant = constant.0 as usize;
+                let constant = unit.constants.get_unchecked(constant);
                 set_register(*target, constant.clone());
+                program_counter = program_counter.add(1);
+            },
+
+            Instruction::LoadUndef{target} => {
+                set_register(*target, Value::undef());
                 program_counter = program_counter.add(1);
             },
 

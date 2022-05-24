@@ -1,5 +1,5 @@
 use {
-    crate::syntax::ast::Definition,
+    crate::{bytecode::Constant, syntax::ast::Definition},
     super::{Error, Result},
     std::{collections::{HashMap, hash_map::Entry::*}, sync::Arc},
 };
@@ -10,11 +10,8 @@ pub struct CollectedDefinitions
     /// The number of constants allocated.
     pub constants_allocated: u32,
 
-    /// Corresponds to [`Unit::init_phasers`].
-    pub init_phasers: Vec<u32>,
-
     /// Corresponds to [`Unit::globals`].
-    pub globals: HashMap<Arc<str>, u32>,
+    pub globals: HashMap<Arc<str>, Constant>,
 }
 
 /// Collected information about definitions.
@@ -26,23 +23,20 @@ pub fn collect_definitions(definitions: &[Definition])
     -> Result<CollectedDefinitions>
 {
     let mut constants_allocated = 0u32;
-    let mut init_phasers = Vec::new();
     let mut globals = HashMap::new();
 
-    let mut allocate_constant = || -> Result<u32> {
+    let mut allocate_constant = || -> Result<Constant> {
         constants_allocated =
             constants_allocated.checked_add(1)
             .ok_or(Error::TooManyConstants)?;
-        Ok(constants_allocated - 1)
+        Ok(Constant(constants_allocated - 1))
     };
 
     for definition in definitions {
         match definition {
 
-            Definition::InitPhaser{..} => {
-                let constant = allocate_constant()?;
-                init_phasers.push(constant);
-            },
+            Definition::InitPhaser{..} =>
+                (/* nothing to collect */),
 
             Definition::Subroutine{name, ..} =>
                 match globals.entry(name.clone()) {
@@ -59,5 +53,5 @@ pub fn collect_definitions(definitions: &[Definition])
         }
     }
 
-    Ok(CollectedDefinitions{constants_allocated, init_phasers, globals})
+    Ok(CollectedDefinitions{constants_allocated, globals})
 }
