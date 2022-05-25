@@ -12,9 +12,16 @@ mod write_regular_file;
 /// Information needed to perform an action.
 pub struct Perform<'a>
 {
+    /// Log file.
+    ///
+    /// The action may write arbitrary text to this file.
+    /// If performing the action fails with an error,
+    /// the error is also appended to the log.
+    pub log: BorrowedFd<'a>,
+
     /// Output directory.
     ///
-    /// When performing an action finishes successfully,
+    /// After successfully performing an action,
     /// all outputs of the action exist in this directory.
     /// The output files are named 0, 1, …, _n_ &minus; 1
     /// where _n_ is [`Action::outputs`].
@@ -22,8 +29,18 @@ pub struct Perform<'a>
 }
 
 /// Result of performing an action.
-pub type Result<T> =
-    std::result::Result<T, Error>;
+pub type Result =
+    std::result::Result<Summary, Error>;
+
+/// Information about successfully performing an action.
+pub struct Summary
+{
+    /// Whether warnings were emitted.
+    ///
+    /// See the manual entry on warnings for
+    /// the implications of setting this flag.
+    pub warnings: bool,
+}
 
 /// Error returned during performing of an action.
 #[allow(missing_docs)]
@@ -35,7 +52,7 @@ pub enum Error
 }
 
 /// Perform an action.
-pub fn perform(perform: &Perform, action: &Action) -> Result<()>
+pub fn perform(perform: &Perform, action: &Action) -> Result
 {
     match action {
         Action::CreateSymbolicLink{target} =>
