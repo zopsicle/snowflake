@@ -1,4 +1,5 @@
 use {
+    regex::bytes::Regex,
     sekka::Sekka,
     snowflake::{action::*, basename::*, label::*},
     std::sync::Arc,
@@ -42,6 +43,7 @@ fn main()
                         (Arc::from(Basename::new("b").unwrap()), osx01.clone()),
                     ].into_iter().collect(),
                     outputs: [].into_iter().collect(),
+                    warnings: None,
                 },
             ),
             (
@@ -52,6 +54,7 @@ fn main()
                         (Arc::from(Basename::new("d").unwrap()), osx10.clone()),
                     ].into_iter().collect(),
                     outputs: [].into_iter().collect(),
+                    warnings: None,
                 },
             ),
             (
@@ -61,6 +64,7 @@ fn main()
                         (Arc::from(Basename::new("e").unwrap()), osx10.clone()),
                     ].into_iter().collect(),
                     outputs: [].into_iter().collect(),
+                    warnings: Some(Regex::new("^warning:").unwrap()),
                 },
             ),
         ].into_iter().collect(),

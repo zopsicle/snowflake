@@ -59,7 +59,7 @@ pub fn perform(perform: &Perform, action: &Action) -> Result
             perform_create_symbolic_link(perform, target),
         Action::WriteRegularFile{content, executable} =>
             perform_write_regular_file(perform, content, *executable),
-        Action::RunCommand{inputs, outputs} =>
+        Action::RunCommand{inputs, outputs, warnings} =>
             perform_run_command(perform),
     }
 }

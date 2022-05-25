@@ -73,7 +73,7 @@ or when otherwise compiling code to be shipped.
 We shift the responsibility of treating warnings as errors
 from individual compilers to the build system as a whole.
 Each action may specify a regular expression for warnings.
-If this regular expression matches the compiler output,
+If this regular expression matches a line of the compiler output,
 then the action is considered to have emitted a warning.
 If Snowflake is instructed by the user to treat warnings as errors,
 actions considered to have emitted warnings will fail.

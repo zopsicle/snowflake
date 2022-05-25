@@ -36,6 +36,11 @@ impl Blake3
         self.put_usize(value.len()).update(value)
     }
 
+    pub fn put_str(&mut self, value: &str) -> &mut Self
+    {
+        self.put_bytes(value.as_bytes())
+    }
+
     pub fn put_cstr(&mut self, value: &CStr) -> &mut Self
     {
         self.update(value.to_bytes_with_nul())

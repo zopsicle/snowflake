@@ -4,6 +4,7 @@ pub use self::graph::*;
 
 use {
     crate::{basename::Basename, hash::Blake3, label::ActionOutputLabel},
+    regex::bytes::Regex,
     std::{collections::BTreeMap, ffi::CString, num::NonZeroU32, sync::Arc},
 };
 
@@ -37,6 +38,7 @@ pub enum Action
         // which is important for the configuration hash.
         inputs: BTreeMap<Arc<Basename>, ActionOutputLabel>,
         outputs: Vec<Arc<Basename>>,
+        warnings: Option<Regex>,
     },
 }
 
@@ -59,7 +61,7 @@ impl Action
                 hasher.put_bytes(content);
                 hasher.put_bool(*executable);
             },
-            Self::RunCommand{inputs, outputs} => {
+            Self::RunCommand{inputs, outputs, warnings} => {
                 hasher.put_u8(ACTION_TYPE_RUN_COMMAND);
 
                 // The action graph structure is irrelevant to the hash.
@@ -73,6 +75,11 @@ impl Action
                 hasher.put_usize(outputs.len());
                 for output in outputs {
                     hasher.put_basename(output);
+                }
+
+                hasher.put_bool(warnings.is_some());
+                if let Some(warnings) = warnings {
+                    hasher.put_str(warnings.as_str());
                 }
             },
         }
