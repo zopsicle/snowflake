@@ -133,7 +133,7 @@ mod tests
         super::*,
         os_ext::{O_CREAT, O_WRONLY, mkdtemp, readlink},
         scope_exit::scope_exit,
-        std::{fs::remove_dir_all, os::unix::io::AsRawFd},
+        std::{fs::remove_dir_all, os::unix::{ffi::OsStrExt, io::AsRawFd}},
     };
 
     #[test]
@@ -153,8 +153,10 @@ mod tests
         let magic_link_1 = format!("/proc/self/fd/{}", scratch_dir_1.as_raw_fd());
         let scratch_dir_path_0 = readlink(Path::new(&magic_link_0)).unwrap();
         let scratch_dir_path_1 = readlink(Path::new(&magic_link_1)).unwrap();
-        assert_eq!(scratch_dir_path_0, path.join("scratches/0"));
-        assert_eq!(scratch_dir_path_1, path.join("scratches/1"));
+        assert_eq!(scratch_dir_path_0.as_bytes(),
+                   path.join("scratches/0").as_os_str().as_bytes());
+        assert_eq!(scratch_dir_path_1.as_bytes(),
+                   path.join("scratches/1").as_os_str().as_bytes());
 
         // Test that scratch directory is writable.
         openat(

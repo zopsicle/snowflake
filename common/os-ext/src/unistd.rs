@@ -1,15 +1,15 @@
 use {
     crate::retry_on_eintr,
     std::{
-        ffi::{CString, OsString},
+        ffi::{CStr, CString},
         io,
-        os::unix::{ffi::{OsStrExt, OsStringExt}, io::{AsRawFd, BorrowedFd}},
-        path::{Path, PathBuf},
+        os::unix::{ffi::OsStrExt, io::{AsRawFd, BorrowedFd}},
+        path::Path,
     },
 };
 
 /// Equivalent to [`readlink`] with [`None`] passed for `dirfd`.
-pub fn readlink(pathname: &Path) -> io::Result<PathBuf>
+pub fn readlink(pathname: &Path) -> io::Result<CString>
 {
     readlinkat(None, pathname)
 }
@@ -22,7 +22,7 @@ pub fn readlink(pathname: &Path) -> io::Result<PathBuf>
 /// When this happens, the wrapper function automatically retries the call
 /// with a bigger buffer, until it fits.
 pub fn readlinkat(dirfd: Option<BorrowedFd>, pathname: &Path)
-    -> io::Result<PathBuf>
+    -> io::Result<CString>
 {
     let dirfd = dirfd.map(|fd| fd.as_raw_fd()).unwrap_or(libc::AT_FDCWD);
     let pathname = CString::new(pathname.as_os_str().as_bytes())?;
@@ -62,8 +62,39 @@ pub fn readlinkat(dirfd: Option<BorrowedFd>, pathname: &Path)
         }
     })?;
 
-    Ok(PathBuf::from(OsString::from_vec(buf)))
+    // SAFETY: Symbolic links do not contain nuls.
+    Ok(unsafe { CString::from_vec_unchecked(buf) })
 }
+
+/// Equivalent to [`symlink`] with [`None`] passed for `newdirfd`.
+pub fn symlink(target: &CStr, linkpath: &Path) -> io::Result<()>
+{
+    symlinkat(target, None, linkpath)
+}
+
+/// Call symlinkat(2) with the given arguments.
+///
+/// If `newdirfd` is [`None`], `AT_FDCWD` is passed.
+pub fn symlinkat(target: &CStr, newdirfd: Option<BorrowedFd>, linkpath: &Path)
+    -> io::Result<()>
+{
+    let newdirfd = newdirfd.map(|fd| fd.as_raw_fd()).unwrap_or(libc::AT_FDCWD);
+    let linkpath = CString::new(linkpath.as_os_str().as_bytes())?;
+
+    retry_on_eintr(|| {
+        // SAFETY: target and linkpath are NUL-terminated.
+        let result = unsafe {
+            libc::symlinkat(target.as_ptr(), newdirfd, linkpath.as_ptr())
+        };
+
+        if result == -1 {
+            return Err(io::Error::last_os_error());
+        }
+
+        Ok(())
+    })
+}
+
 
 #[cfg(test)]
 mod tests
@@ -77,7 +108,7 @@ mod tests
             let expected: String = "0123456789".chars().cycle().take(len).collect();
             let symlink = format!("testdata/{}-byte-symlink", len);
             let actual = readlinkat(None, Path::new(&symlink)).unwrap();
-            assert_eq!(actual, PathBuf::from(expected));
+            assert_eq!(actual.as_bytes(), expected.as_bytes());
         }
     }
 }

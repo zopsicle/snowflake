@@ -7,6 +7,8 @@ use {
     std::{collections::BTreeMap, ffi::CString, num::NonZeroU32, sync::Arc},
 };
 
+pub mod perform;
+
 mod graph;
 
 /// How to produce outputs given some configuration and inputs.

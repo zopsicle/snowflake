@@ -164,11 +164,7 @@ fn write_lnk_at(
 
     // Write link target.
     let target = readlinkat(dirfd, path)?;
-    writer.write_all(target.as_os_str().as_bytes())?;
-
-    // Write link target terminator.
-    // Link targets do not contain NULs.
-    writer.write_all(&[0])
+    writer.write_all(target.as_bytes_with_nul())
 }
 
 #[cfg(test)]
