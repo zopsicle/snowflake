@@ -1,14 +1,14 @@
-use {snowflake::{action::*, basename::*, label::*}, std::sync::Arc};
+use {
+    sekka::Sekka,
+    snowflake::{action::*, basename::*, label::*},
+    std::sync::Arc,
+};
 
 fn main()
 {
     let source = "INIT { } INIT { } sub f() { 'a' ~ 'b' ~ 'c'; } sub g() { }";
-    let unit = sekka::unstable::compile
-        ::compile_unit_from_source("".into(), source).unwrap();
-    println!("{:?}", unit.init_phasers);
-    println!("{:?}", unit.globals);
-    let (_, procedure) = unit.constants[0].clone().to_subroutine().unwrap();
-    println!("{:#?}", procedure);
+    let mut sekka = Sekka::new();
+    sekka.compile("".into(), source).unwrap();
 
     let ps = PackageLabel{segments: vec![].into()};
 
