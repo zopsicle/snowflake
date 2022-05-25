@@ -7,8 +7,8 @@ The requirements surrounding the design of Snowflake
 are elaborated upon in this chapter.
 
 
-Snowflake is a language-agnostic
---------------------------------
+Snowflake is language-agnostic
+------------------------------
 
 Snowflake does not attach special meanings to the contents of source files.
 It can invoke any tool that can be run as a batch command.
