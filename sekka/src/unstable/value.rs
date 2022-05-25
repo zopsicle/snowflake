@@ -1,7 +1,7 @@
 //! Reference-counted Sekka values.
 
 use {
-    crate::bytecode::Verified,
+    crate::unstable::bytecode::Verified,
     std::{error::Error, sync::Arc},
     thiserror::Error,
 };

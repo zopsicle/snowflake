@@ -3,7 +3,7 @@
 pub use self::{builder::*, verify::*};
 
 use {
-    crate::{syntax::location::Location, value::Value},
+    crate::{syntax::location::Location, unstable::value::Value},
     std::{collections::HashMap, fmt, path::PathBuf, sync::{Arc, Weak}},
 };
 

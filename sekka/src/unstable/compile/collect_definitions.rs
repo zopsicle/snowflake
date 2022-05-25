@@ -1,5 +1,5 @@
 use {
-    crate::{bytecode::Constant, syntax::ast::Definition},
+    crate::{syntax::ast::Definition, unstable::bytecode::Constant},
     super::{Error, Result},
     std::{collections::{HashMap, hash_map::Entry::*}, sync::Arc},
 };

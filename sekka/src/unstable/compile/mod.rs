@@ -4,15 +4,24 @@ pub use self::{error::*, symbol::*};
 
 use {
     crate::{
-        bytecode::{Builder, Constant, Instruction, Register, Unit, Verified},
         syntax::{
             ast::*,
             lex::Lexer,
             location::Location,
             parse::{Arenas, parse_unit},
         },
+        unstable::{
+            bytecode::{
+                Builder,
+                Constant,
+                Instruction,
+                Register,
+                Unit,
+                Verified,
+            },
+            value::Value,
+        },
         util::try_new_cyclic,
-        value::Value,
     },
     self::collect_definitions::*,
     std::{collections::HashMap, path::PathBuf, sync::{Arc, Weak}},

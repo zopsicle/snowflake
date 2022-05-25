@@ -1,7 +1,7 @@
 //! Interpreting bytecode.
 
 use {
-    crate::{
+    crate::unstable::{
         bytecode::{Instruction, Register, Unit},
         value::{StringFromBytesError, ToStringError, Value},
     },

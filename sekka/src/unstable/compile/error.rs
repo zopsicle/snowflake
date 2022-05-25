@@ -1,5 +1,8 @@
 use {
-    crate::{bytecode::BuildError, syntax::parse, value::StringFromBytesError},
+    crate::{
+        syntax::parse,
+        unstable::{bytecode::BuildError, value::StringFromBytesError},
+    },
     std::sync::Arc,
     thiserror::Error,
 };
