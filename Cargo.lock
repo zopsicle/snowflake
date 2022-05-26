@@ -104,6 +104,7 @@ version = "0.0.0"
 dependencies = [
  "blake3_c_rust_bindings",
  "cc",
+ "libc",
  "os-ext",
  "regex",
  "scope-exit",
