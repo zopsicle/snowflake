@@ -1,13 +1,15 @@
 use {
-    self::{create_symbolic_link::*, run_command::*, write_regular_file::*},
     super::Action,
-    std::{io, os::unix::io::BorrowedFd},
+    os_ext::{O_CREAT, O_WRONLY, openat, symlinkat},
+    std::{
+        ffi::CStr,
+        fs::File,
+        io::{self, Write},
+        os::unix::io::BorrowedFd,
+        path::Path,
+    },
     thiserror::Error,
 };
-
-mod create_symbolic_link;
-mod run_command;
-mod write_regular_file;
 
 /// Information needed to perform an action.
 pub struct Perform<'a>
@@ -63,3 +65,25 @@ pub fn perform(perform: &Perform, action: &Action) -> Result
             perform_run_command(perform),
     }
 }
+
+fn perform_create_symbolic_link(perform: &Perform, target: &CStr) -> Result
+{
+    symlinkat(target, Some(perform.outputs), Path::new("0"))?;
+    Ok(Summary{warnings: false})
+}
+
+fn perform_write_regular_file(
+    perform: &Perform,
+    content: &[u8],
+    executable: bool,
+) -> Result
+{
+    let flags = O_CREAT | O_WRONLY;
+    let mode = if executable { 0o755 } else { 0o644 };
+    let file = openat(Some(perform.outputs), Path::new("0"), flags, mode)?;
+    File::from(file).write_all(content)?;
+    Ok(Summary{warnings: false})
+}
+
+use self::run_command::perform_run_command;
+mod run_command;
