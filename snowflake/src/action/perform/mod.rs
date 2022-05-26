@@ -2,11 +2,12 @@ use {
     super::Action,
     os_ext::{O_CREAT, O_WRONLY, openat, symlinkat},
     std::{
-        ffi::CStr,
+        ffi::{CStr, NulError},
         fs::File,
         io::{self, Write},
         os::unix::io::BorrowedFd,
         path::Path,
+        process::ExitStatusError,
     },
     thiserror::Error,
 };
@@ -51,6 +52,18 @@ pub enum Error
 {
     #[error("{0}")]
     Io(#[from] io::Error),
+
+    #[error("{0}")]
+    Nul(#[from] NulError),
+
+    #[error("Container setup: {1}: {0}")]
+    ContainerSetup(io::Error, String),
+
+    #[error("Timeout")]
+    Timeout,
+
+    #[error("{0}")]
+    ExitStatus(#[from] ExitStatusError),
 }
 
 /// Perform an action.
@@ -61,8 +74,14 @@ pub fn perform(perform: &Perform, action: &Action) -> Result
             perform_create_symbolic_link(perform, target),
         Action::WriteRegularFile{content, executable} =>
             perform_write_regular_file(perform, content, *executable),
-        Action::RunCommand{inputs, outputs, warnings} =>
-            perform_run_command(perform),
+        Action::RunCommand{
+            inputs, outputs, program, arguments,
+            environment, timeout, warnings,
+        } =>
+            perform_run_command(
+                perform, program, arguments,
+                environment, *timeout,
+            ),
     }
 }
 

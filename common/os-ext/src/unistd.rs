@@ -1,12 +1,51 @@
 use {
-    crate::retry_on_eintr,
+    crate::{gid_t, retry_on_eintr, uid_t},
     std::{
         ffi::{CStr, CString},
         io,
-        os::unix::{ffi::OsStrExt, io::{AsRawFd, BorrowedFd}},
+        os::unix::{
+            ffi::OsStrExt,
+            io::{AsRawFd, BorrowedFd, FromRawFd, OwnedFd},
+        },
         path::Path,
     },
 };
+
+/// Call getgid(2).
+pub fn getgid() -> gid_t
+{
+    // SAFETY: This is always safe.
+    unsafe { libc::getgid() }
+}
+
+/// Call getuid(2).
+pub fn getuid() -> uid_t
+{
+    // SAFETY: This is always safe.
+    unsafe { libc::getuid() }
+}
+
+/// Call pipe2(2) with the given arguments.
+pub fn pipe2(flags: libc::c_int) -> io::Result<(OwnedFd, OwnedFd)>
+{
+    let flags = flags | libc::O_CLOEXEC;
+
+    retry_on_eintr(|| {
+        let mut pipefd = [-1; 2];
+        // SAFETY: pipefd is sufficiently large.
+        let result = unsafe { libc::pipe2(pipefd.as_mut_ptr(), flags) };
+
+        if result == -1 {
+            return Err(io::Error::last_os_error());
+        }
+
+        Ok((
+            // SAFETY: These file descriptors are fresh.
+            unsafe { OwnedFd::from_raw_fd(pipefd[0]) },
+            unsafe { OwnedFd::from_raw_fd(pipefd[1]) }
+        ))
+    })
+}
 
 /// Equivalent to [`readlink`] with [`None`] passed for `dirfd`.
 pub fn readlink(pathname: &Path) -> io::Result<CString>

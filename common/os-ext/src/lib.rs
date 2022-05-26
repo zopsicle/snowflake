@@ -36,6 +36,7 @@ pub use {
         AT_SYMLINK_NOFOLLOW,
         O_CREAT, O_DIRECTORY, O_NOFOLLOW, O_PATH, O_RDONLY, O_WRONLY,
         S_IFDIR, S_IFLNK, S_IFMT, S_IFREG, S_IXUSR,
+        gid_t, uid_t,
     },
 };
 

@@ -5,7 +5,13 @@ pub use self::graph::*;
 use {
     crate::{basename::Basename, hash::Blake3, label::ActionOutputLabel},
     regex::bytes::Regex,
-    std::{collections::BTreeMap, ffi::CString, sync::Arc},
+    std::{
+        collections::BTreeMap,
+        ffi::CString,
+        path::PathBuf,
+        sync::Arc,
+        time::Duration,
+    },
 };
 
 pub mod perform;
@@ -38,6 +44,10 @@ pub enum Action
         // which is important for the configuration hash.
         inputs: BTreeMap<Arc<Basename>, ActionOutputLabel>,
         outputs: Vec<Arc<Basename>>,
+        program: PathBuf,
+        arguments: Vec<CString>,
+        environment: Vec<CString>,
+        timeout: Duration,
         warnings: Option<Regex>,
     },
 }
@@ -61,7 +71,10 @@ impl Action
                 hasher.put_bytes(content);
                 hasher.put_bool(*executable);
             },
-            Self::RunCommand{inputs, outputs, warnings} => {
+            Self::RunCommand{
+                inputs, outputs, program, arguments,
+                environment, timeout, warnings,
+            } => {
                 hasher.put_u8(ACTION_TYPE_RUN_COMMAND);
 
                 // The action graph structure is irrelevant to the hash.
@@ -76,6 +89,22 @@ impl Action
                 for output in outputs {
                     hasher.put_basename(output);
                 }
+
+                hasher.put_path(program);
+
+                hasher.put_usize(arguments.len());
+                for argument in arguments {
+                    hasher.put_cstr(argument);
+                }
+
+                hasher.put_usize(environment.len());
+                for variable in environment {
+                    hasher.put_cstr(variable);
+                }
+
+                // The timeout cannot affect the output of the action,
+                // so there is no need to include it in the hash.
+                let _ = timeout;
 
                 hasher.put_bool(warnings.is_some());
                 if let Some(warnings) = warnings {
