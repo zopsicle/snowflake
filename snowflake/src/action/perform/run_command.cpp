@@ -19,15 +19,33 @@
 #include <ctime>
 #include <fcntl.h>
 #include <linux/sched.h>
+#include <optional>
 #include <poll.h>
 #include <sched.h>
 #include <signal.h>
 #include <sys/syscall.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <utility>
 
 namespace
 {
+    /// Handy generic scope guard with "skip" and "run now" features.
+    template<typename F>
+    class scope_exit
+    {
+    public:
+        explicit scope_exit(F f) : f(std::move(f)) { }
+        ~scope_exit() { if (f) (*f)(); }
+        scope_exit(scope_exit const& other) = delete;
+        scope_exit& operator=(scope_exit const& other) = delete;
+        void skip()    { f.reset(); }
+        void run_now() { this->~scope_exit(); f.reset(); }
+    private:
+        std::optional<F> f;
+    };
+
+    /// Status returned to the caller.
     enum class status
     {
         child_terminated,
@@ -60,6 +78,8 @@ extern "C" status snowflake_perform_run_command_gist(
     int pipe2_ok = pipe2(pipefd, O_CLOEXEC);
     if (pipe2_ok == -1)
         return status::failure_pipe2;
+    scope_exit pipefd0_guard([&] { close(pipefd[0]); });
+    scope_exit pipefd1_guard([&] { close(pipefd[1]); });
 
 /* -------------------------------------------------------------------------- */
 /*                               Invoking clone3                              */
@@ -90,11 +110,10 @@ extern "C" status snowflake_perform_run_command_gist(
     // Interface of this syscall is similar to that of fork(2).
     pid_t pid = syscall(SYS_clone3, &cl_args, sizeof(cl_args));
 
-    if (pid == -1) {
-        close(pipefd[0]);
-        close(pipefd[1]);
+    if (pid == -1)
         return status::failure_clone3;
-    }
+
+    scope_exit pidfd_guard([&] { close(pidfd); });
 
 /* -------------------------------------------------------------------------- */
 /*                         Code that runs in the child                        */
@@ -102,8 +121,8 @@ extern "C" status snowflake_perform_run_command_gist(
 
     if (pid == 0) {
 
-        // Close read end of pipe.
-        close(pipefd[0]);
+        // Close the read end of the pipe.
+        pipefd0_guard.run_now();
 
         // Function for sending error to the parent.
         auto send_error = [&] (char const* source) {
@@ -120,38 +139,33 @@ extern "C" status snowflake_perform_run_command_gist(
 
     }
 
-    // Function for cleaning up the child in case of error.
-    auto kill_child = [&] {
+    // Clean up the child in case of error.
+    // We can call SIGKILL and not worry about unfreed resources,
+    // because the child runs in a container (incl. a PID namespace).
+    scope_exit child_guard([&] {
         kill(pid, SIGKILL);
         waitpid(pid, nullptr, 0);
-        close(pidfd);
-    };
+    });
 
 /* -------------------------------------------------------------------------- */
 /*                             Waiting for execve                             */
 /* -------------------------------------------------------------------------- */
 
-    // Close write end of pipe.
-    close(pipefd[1]);
+    // Close the write end of the pipe.
+    pipefd1_guard.run_now();
 
     int nread = read(pipefd[0], errbuf, errlen);
 
-    if (nread == -1) {
-        kill_child();
-        close(pipefd[0]);
+    if (nread == -1)
         return status::failure_read;
-    }
 
     // If the child sent data over the pipe,
     // something went wrong pre-execve.
-    if (nread != 0) {
-        kill_child();
-        close(pipefd[0]);
+    if (nread != 0)
         return status::failure_pre_execve;
-    }
 
-    // No longer need the pipe now.
-    close(pipefd[0]);
+    // No longer need the read end of the pipe.
+    pipefd0_guard.run_now();
 
 /* -------------------------------------------------------------------------- */
 /*                          Implementing the timeout                          */
@@ -163,27 +177,28 @@ extern "C" status snowflake_perform_run_command_gist(
         .revents = 0,
     };
 
+    // ppoll will wait until the child terminates, or a timeout occurs.
     int poll_result = ppoll(&poll_fd, 1, &timeout, nullptr);
 
-    if (poll_result == -1) {
-        kill_child();
+    if (poll_result == -1)
         return status::failure_ppoll;
-    }
 
     // ppoll returning 0 indicates a timeout.
-    if (poll_result == 0) {
-        kill_child();
+    if (poll_result == 0)
         return status::failure_timeout;
-    }
 
-    // ppoll returning non-0 indicates the child terminated.
+/* -------------------------------------------------------------------------- */
+/*                            Cleaning up the child                           */
+/* -------------------------------------------------------------------------- */
+
+    // Even though the child has terminated, we need to call waitpid.
+    // This retrieves the wait status and cleans up resources.
     int waitpid_pid = waitpid(pid, &wstatus, 0);
-    if (waitpid_pid != pid) {
-        kill_child();
+    if (waitpid_pid != pid)
         return status::failure_waitpid;
-    }
 
-    close(pidfd);
+    // Child has been waited for by now.
+    child_guard.skip();
 
     return status::child_terminated;
 
