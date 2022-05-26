@@ -103,6 +103,7 @@ name = "snowflake"
 version = "0.0.0"
 dependencies = [
  "blake3_c_rust_bindings",
+ "cc",
  "os-ext",
  "regex",
  "scope-exit",
