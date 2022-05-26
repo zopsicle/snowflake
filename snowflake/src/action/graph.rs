@@ -16,7 +16,10 @@ pub struct ActionGraph
 
 impl ActionGraph
 {
-    /// Remove any actions not necessary to produce the artifacts.
+    /// Remove any actions that do not need to be performed.
+    ///
+    /// Actions that do not need to be performed are non-lint actions
+    /// which are not transitively depended upon by the artifact set.
     pub fn prune(&mut self)
     {
         let mut live = HashSet::new();
