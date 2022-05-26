@@ -19,8 +19,16 @@ impl ActionGraph
     /// Remove any actions not necessary to produce the artifacts.
     pub fn prune(&mut self)
     {
-        // This implements a mark-and-sweep algorithm.
+        let mut live = HashSet::new();
 
+        // Lint actions are always considered live.
+        live.extend(
+            self.actions.iter()
+            .filter(|a| a.1.is_lint())
+            .map(|a| a.0.clone())
+        );
+
+        // Use mark-and-sweep to find other live actions.
         fn mark_recursively<'a>(
             graph: &HashMap<ActionLabel, Action>,
             live: &mut HashSet<ActionLabel>,
@@ -36,9 +44,9 @@ impl ActionGraph
                 mark_recursively(graph, live, action.inputs());
             }
         }
-
-        let mut live = HashSet::new();
         mark_recursively(&self.actions, &mut live, self.artifacts.iter());
+
+        // Throw away all non-live actions.
         self.actions.retain(|k, _| live.contains(k));
     }
 }

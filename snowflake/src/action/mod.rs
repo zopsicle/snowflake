@@ -5,7 +5,7 @@ pub use self::graph::*;
 use {
     crate::{basename::Basename, hash::Blake3, label::ActionOutputLabel},
     regex::bytes::Regex,
-    std::{collections::BTreeMap, ffi::CString, num::NonZeroU32, sync::Arc},
+    std::{collections::BTreeMap, ffi::CString, sync::Arc},
 };
 
 pub mod perform;
@@ -101,18 +101,21 @@ impl Action
     }
 
     /// The number of outputs of this action.
-    pub fn outputs(&self) -> NonZeroU32
+    pub fn outputs(&self) -> usize
     {
         match self {
-            Self::CreateSymbolicLink{..} =>
-                NonZeroU32::new(1).unwrap(),
-            Self::WriteRegularFile{..} =>
-                NonZeroU32::new(1).unwrap(),
-            Self::RunCommand{outputs, ..} => {
-                let n = outputs.len().try_into()
-                    .expect("Action has too many outputs");
-                NonZeroU32::new(n).expect("Action has no outputs")
-            },
+            Self::CreateSymbolicLink{..}  => 1,
+            Self::WriteRegularFile{..}    => 1,
+            Self::RunCommand{outputs, ..} => outputs.len(),
         }
+    }
+
+    /// Whether this action is a lint.
+    ///
+    /// Lint actions are actions that produce no outputs.
+    /// They are invoked only for the warnings they emit.
+    pub fn is_lint(&self) -> bool
+    {
+        self.outputs() == 0
     }
 }
