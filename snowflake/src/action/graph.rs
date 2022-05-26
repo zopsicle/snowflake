@@ -55,21 +55,29 @@ impl fmt::Display for ActionGraph
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
+        const FONTNAME:      &str = "monospace";
+        const COLOR_ACTION:  &str = "/pastel28/1";
+        const COLOR_LINT:    &str = "/pastel28/2";
+        const COLOR_SPECIAL: &str = "/pastel28/3";
+
         write!(f, "digraph {{")?;
+        write!(f, "node [fontname = {FONTNAME}, shape = box, style = filled];")?;
+        write!(f, "edge [fontname = {FONTNAME}];")?;
 
         for (label, action) in &self.actions {
-            write!(f, "\"{}\" [shape = \"box\"];", label)?;
+            let color = if action.is_lint() { COLOR_LINT } else { COLOR_ACTION };
+            write!(f, "\"{label}\" [color = \"{color}\"];")?;
             for input in action.inputs() {
                 write!(f,
-                    "\"{}\" -> \"{}\" [label = \"{}\"];",
+                    "\"{}\" -> \"{}\" [label = {}];",
                     input.action, label, input.output)?;
             }
         }
 
-        write!(f, "\"«artifacts»\" [shape = \"box\"];")?;
+        write!(f, "Artifacts [color = \"{COLOR_SPECIAL}\"];")?;
         for artifact in &self.artifacts {
             write!(f,
-                "\"{}\" -> \"«artifacts»\" [label = \"{}\"];",
+                "\"{}\" -> Artifacts [label = {}];",
                 artifact.action, artifact.output)?;
         }
 
