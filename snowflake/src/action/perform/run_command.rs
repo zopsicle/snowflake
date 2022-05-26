@@ -1,10 +1,13 @@
-use super::{Perform, Result};
+use {super::{Perform, Result}, std::io};
 
 #[repr(C)]
 enum status
 {
     child_terminated,
+    failure_pipe2,
     failure_clone3,
+    failure_read,
+    failure_pre_execve,
     failure_ppoll,
     failure_timeout,
     failure_waitpid,
@@ -14,6 +17,8 @@ extern "C"
 {
     fn snowflake_perform_run_command_gist(
         wstatus: &mut libc::c_int,
+        errbuf:  *mut u8,
+        errlen:  libc::size_t,
         timeout: libc::timespec,
     ) -> status;
 }
@@ -21,11 +26,26 @@ extern "C"
 pub fn perform_run_command(perform: &Perform) -> Result
 {
     let mut wstatus = 0;
+    let mut errbuf = [0; 128];
     let timeout = libc::timespec{tv_sec: 1, tv_nsec: 0};
     let status = unsafe {
-        snowflake_perform_run_command_gist(&mut wstatus, timeout)
+        snowflake_perform_run_command_gist(
+            &mut wstatus,
+            errbuf.as_mut_ptr(),
+            errbuf.len(),
+            timeout,
+        )
     };
-    todo!("{:?} {:?}", status as u32, wstatus)
+    todo!(
+        "{:?} {:?} {:?} {:?}",
+        status as u32,
+        io::Error::from_raw_os_error(
+            i32::from_ne_bytes(errbuf[0 .. 4].try_into().unwrap()),
+        ),
+        String::from_utf8_lossy(&errbuf[4 ..])
+            .trim_end_matches('\0'),
+        wstatus,
+    )
 }
 
 #[cfg(test)]

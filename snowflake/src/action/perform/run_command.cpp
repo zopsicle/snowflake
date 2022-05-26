@@ -6,13 +6,18 @@
 //!
 //! All of this is unsafe anyway and all the man pages and examples are in C,
 //! so using C++ for this is a little easier than doing it all in unsafe Rust.
+//!
+//! The implementation does not currently retry on EINTR.
+//! This is fine because Snowflake does not use signal handlers.
 
 // _FORTIFY_SOURCE causes warnings when compiling with -O0.
 #undef _FORTIFY_SOURCE
 
 #include <cerrno>
 #include <cstdint>
+#include <cstring>
 #include <ctime>
+#include <fcntl.h>
 #include <linux/sched.h>
 #include <poll.h>
 #include <sched.h>
@@ -26,7 +31,10 @@ namespace
     enum class status
     {
         child_terminated,
+        failure_pipe2,
         failure_clone3,
+        failure_read,
+        failure_pre_execve,
         failure_ppoll,
         failure_timeout,
         failure_waitpid,
@@ -36,9 +44,22 @@ namespace
 /// The gist of perform_run_command.
 extern "C" status snowflake_perform_run_command_gist(
     int& wstatus,
+    char* errbuf,
+    std::size_t errlen,
     timespec timeout
 )
 {
+
+/* -------------------------------------------------------------------------- */
+/*                          Create communication pipe                         */
+/* -------------------------------------------------------------------------- */
+
+    // This pipe is used by the child to send pre-execve errors to the parent.
+    // Once the read-end is closed, the parent knows execve has succeeded.
+    int pipefd[2];
+    int pipe2_ok = pipe2(pipefd, O_CLOEXEC);
+    if (pipe2_ok == -1)
+        return status::failure_pipe2;
 
 /* -------------------------------------------------------------------------- */
 /*                               Invoking clone3                              */
@@ -69,25 +90,72 @@ extern "C" status snowflake_perform_run_command_gist(
     // Interface of this syscall is similar to that of fork(2).
     pid_t pid = syscall(SYS_clone3, &cl_args, sizeof(cl_args));
 
-    if (pid == -1)
+    if (pid == -1) {
+        close(pipefd[0]);
+        close(pipefd[1]);
         return status::failure_clone3;
+    }
 
 /* -------------------------------------------------------------------------- */
 /*                         Code that runs in the child                        */
 /* -------------------------------------------------------------------------- */
 
     if (pid == 0) {
-        _exit(1);
+
+        // Close read end of pipe.
+        close(pipefd[0]);
+
+        // Function for sending error to the parent.
+        auto send_error = [&] (char const* source) {
+            std::int32_t errnum = errno;
+            write(pipefd[1], &errnum, sizeof(errnum));
+            write(pipefd[1], source, std::strlen(source));
+            _exit(1);
+        };
+
+        errno = ENOENT;
+        send_error("Hello, world!");
+
+        _exit(0);
+
     }
+
+    // Function for cleaning up the child in case of error.
+    auto kill_child = [&] {
+        kill(pid, SIGKILL);
+        waitpid(pid, nullptr, 0);
+        close(pidfd);
+    };
+
+/* -------------------------------------------------------------------------- */
+/*                             Waiting for execve                             */
+/* -------------------------------------------------------------------------- */
+
+    // Close write end of pipe.
+    close(pipefd[1]);
+
+    int nread = read(pipefd[0], errbuf, errlen);
+
+    if (nread == -1) {
+        kill_child();
+        close(pipefd[0]);
+        return status::failure_read;
+    }
+
+    // If the child sent data over the pipe,
+    // something went wrong pre-execve.
+    if (nread != 0) {
+        kill_child();
+        close(pipefd[0]);
+        return status::failure_pre_execve;
+    }
+
+    // No longer need the pipe now.
+    close(pipefd[0]);
 
 /* -------------------------------------------------------------------------- */
 /*                          Implementing the timeout                          */
 /* -------------------------------------------------------------------------- */
-
-    auto kill_child = [&] {
-        kill(pid, SIGKILL);
-        waitpid(pid, nullptr, 0);
-    };
 
     pollfd poll_fd{
         .fd = pidfd,
@@ -97,8 +165,6 @@ extern "C" status snowflake_perform_run_command_gist(
 
     int poll_result = ppoll(&poll_fd, 1, &timeout, nullptr);
 
-    // Snowflake does not use signal handlers.
-    // So there is no need to handle EINTR.
     if (poll_result == -1) {
         kill_child();
         return status::failure_ppoll;
@@ -116,6 +182,8 @@ extern "C" status snowflake_perform_run_command_gist(
         kill_child();
         return status::failure_waitpid;
     }
+
+    close(pidfd);
 
     return status::child_terminated;
 
