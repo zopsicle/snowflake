@@ -62,14 +62,14 @@ namespace
 
 /// The gist of perform_run_command.
 extern "C" status snowflake_perform_run_command_gist(
-    int&         wstatus,
-    char*        errbuf,
-    std::size_t  errlen,
-    int          log_file,
-    char const*  execve_pathname,
-    char* const* execve_argv,
-    char* const* execve_envp,
-    timespec     timeout
+    int&         wstatus,           // Wait status of the child.
+    char*        errbuf,            // Errors from child written to here.
+    std::size_t  errlen,            // Number of bytes available in errbuf.
+    int          log_file,          // Stdout and stderr redirected to here.
+    char const*  execve_pathname,   // Pathname argument to execve.
+    char* const* execve_argv,       // Argv argument to execve.
+    char* const* execve_envp,       // Envp argument to execve.
+    timespec     timeout            // Timeout for the child.
 )
 {
 
@@ -77,6 +77,7 @@ extern "C" status snowflake_perform_run_command_gist(
 /*                  Prepare writes to /proc/self/{u,g}id_map                  */
 /* -------------------------------------------------------------------------- */
 
+    // This allocates memory, so it must happen before call to clone3.
     auto uid_map = "0 " + std::to_string(getuid()) + " 1";
     auto gid_map = "0 " + std::to_string(getgid()) + " 1";
 
@@ -194,6 +195,7 @@ extern "C" status snowflake_perform_run_command_gist(
     // Close the write end of the pipe.
     pipefd1_guard.run_now();
 
+    // This blocks until the child errors or execves.
     int nread = read(pipefd[0], errbuf, errlen);
 
     if (nread == -1)
@@ -204,6 +206,9 @@ extern "C" status snowflake_perform_run_command_gist(
     if (nread != 0)
         return status::failure_pre_execve;
 
+    // If nread was zero, then the write end of the pipe was closed.
+    // This only happens if the child successfully called execve.
+
     // No longer need the read end of the pipe.
     pipefd0_guard.run_now();
 
@@ -211,13 +216,9 @@ extern "C" status snowflake_perform_run_command_gist(
 /*                          Implementing the timeout                          */
 /* -------------------------------------------------------------------------- */
 
-    pollfd poll_fd{
-        .fd = pidfd,
-        .events = POLLIN,
-        .revents = 0,
-    };
-
-    // ppoll will wait until the child terminates, or a timeout occurs.
+    // A pidfd reports POLLIN when the child terminates.
+    // We don't need to actually read from the pidfd, only poll.
+    pollfd poll_fd{ .fd = pidfd, .events = POLLIN, .revents = 0 };
     int poll_result = ppoll(&poll_fd, 1, &timeout, nullptr);
 
     if (poll_result == -1)
