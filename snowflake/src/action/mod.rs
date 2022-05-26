@@ -55,7 +55,7 @@ pub enum Action
 impl Action
 {
     /// Hash of the configuration of the action.
-    pub fn hash_configuration(&self, hasher: &mut Blake3)
+    pub fn hash_configuration(&self, h: &mut Blake3)
     {
         // NOTE: See the manual chapter on avoiding hash collisions.
         const ACTION_TYPE_CREATE_SYMBOLIC_LINK: u8 = 0;
@@ -63,52 +63,37 @@ impl Action
         const ACTION_TYPE_RUN_COMMAND:          u8 = 2;
         match self {
             Self::CreateSymbolicLink{target} => {
-                hasher.put_u8(ACTION_TYPE_CREATE_SYMBOLIC_LINK);
-                hasher.put_cstr(target);
+                h.put_u8(ACTION_TYPE_CREATE_SYMBOLIC_LINK);
+                h.put_cstr(target);
             },
             Self::WriteRegularFile{content, executable} => {
-                hasher.put_u8(ACTION_TYPE_WRITE_REGULAR_FILE);
-                hasher.put_bytes(content);
-                hasher.put_bool(*executable);
+                h.put_u8(ACTION_TYPE_WRITE_REGULAR_FILE);
+                h.put_bytes(content);
+                h.put_bool(*executable);
             },
             Self::RunCommand{
                 inputs, outputs, program, arguments,
                 environment, timeout, warnings,
             } => {
-                hasher.put_u8(ACTION_TYPE_RUN_COMMAND);
+                h.put_u8(ACTION_TYPE_RUN_COMMAND);
 
                 // The action graph structure is irrelevant to the hash.
                 // So we only include the names of the inputs,
                 // and not the files they represent in the action graph.
-                hasher.put_usize(inputs.len());
-                for input in inputs.keys() {
-                    hasher.put_basename(input);
-                }
+                h.put_btree_map(inputs, |h, i, _| h.put_basename(i));
 
-                hasher.put_usize(outputs.len());
-                for output in outputs {
-                    hasher.put_basename(output);
-                }
-
-                hasher.put_path(program);
-
-                hasher.put_usize(arguments.len());
-                for argument in arguments {
-                    hasher.put_cstr(argument);
-                }
-
-                hasher.put_usize(environment.len());
-                for variable in environment {
-                    hasher.put_cstr(variable);
-                }
+                h.put_slice(outputs, |h, o| h.put_basename(o));
+                h.put_path(program);
+                h.put_slice(arguments, |h, a| h.put_cstr(a));
+                h.put_slice(environment, |h, e| h.put_cstr(e));
 
                 // The timeout cannot affect the output of the action,
                 // so there is no need to include it in the hash.
                 let _ = timeout;
 
-                hasher.put_bool(warnings.is_some());
+                h.put_bool(warnings.is_some());
                 if let Some(warnings) = warnings {
-                    hasher.put_str(warnings.as_str());
+                    h.put_str(warnings.as_str());
                 }
             },
         }
