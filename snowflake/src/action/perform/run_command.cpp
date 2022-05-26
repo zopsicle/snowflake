@@ -23,6 +23,7 @@
 #include <poll.h>
 #include <sched.h>
 #include <signal.h>
+#include <string>
 #include <sys/syscall.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -69,6 +70,13 @@ extern "C" status snowflake_perform_run_command_gist(
 {
 
 /* -------------------------------------------------------------------------- */
+/*                  Prepare writes to /proc/self/{u,g}id_map                  */
+/* -------------------------------------------------------------------------- */
+
+    auto uid_map = "0 " + std::to_string(getuid()) + " 1";
+    auto gid_map = "0 " + std::to_string(getgid()) + " 1";
+
+/* -------------------------------------------------------------------------- */
 /*                          Create communication pipe                         */
 /* -------------------------------------------------------------------------- */
 
@@ -113,6 +121,10 @@ extern "C" status snowflake_perform_run_command_gist(
     if (pid == -1)
         return status::failure_clone3;
 
+/* ========================================================================== */
+/*                       BEGIN OF ASYNC-SIGNAL-SAFE CODE                      */
+/* ========================================================================== */
+
     scope_exit pidfd_guard([&] { close(pidfd); });
 
 /* -------------------------------------------------------------------------- */
@@ -132,12 +144,31 @@ extern "C" status snowflake_perform_run_command_gist(
             _exit(1);
         };
 
-        errno = ENOENT;
-        send_error("Hello, world!");
+        // Function for dumping data to a file.
+        auto write_file = [&] (
+            char const* pathname,
+            char const* ptr,
+            std::size_t len
+        ) {
+            int fd = open(pathname, O_CLOEXEC | O_WRONLY);
+            if (fd == -1) send_error("open");
+            int nwritten = write(fd, ptr, len);
+            if (nwritten == -1) send_error("write");
+            close(fd);
+        };
+
+        // Map root inside container to actual user outside container.
+        write_file("/proc/self/setgroups", "deny\n", 5);
+        write_file("/proc/self/uid_map", uid_map.c_str(), uid_map.size());
+        write_file("/proc/self/gid_map", gid_map.c_str(), gid_map.size());
 
         _exit(0);
 
     }
+
+/* ========================================================================== */
+/*                        END OF ASYNC-SIGNAL-SAFE CODE                       */
+/* ========================================================================== */
 
     // Clean up the child in case of error.
     // We can call SIGKILL and not worry about unfreed resources,
