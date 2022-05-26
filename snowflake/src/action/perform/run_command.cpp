@@ -62,10 +62,11 @@ namespace
 
 /// The gist of perform_run_command.
 extern "C" status snowflake_perform_run_command_gist(
-    int& wstatus,
-    char* errbuf,
+    int&        wstatus,
+    char*       errbuf,
     std::size_t errlen,
-    timespec timeout
+    int         log_file,
+    timespec    timeout
 )
 {
 
@@ -83,8 +84,7 @@ extern "C" status snowflake_perform_run_command_gist(
     // This pipe is used by the child to send pre-execve errors to the parent.
     // Once the read-end is closed, the parent knows execve has succeeded.
     int pipefd[2];
-    int pipe2_ok = pipe2(pipefd, O_CLOEXEC);
-    if (pipe2_ok == -1)
+    if (pipe2(pipefd, O_CLOEXEC) == -1)
         return status::failure_pipe2;
     scope_exit pipefd0_guard([&] { close(pipefd[0]); });
     scope_exit pipefd1_guard([&] { close(pipefd[1]); });
@@ -152,8 +152,7 @@ extern "C" status snowflake_perform_run_command_gist(
         ) {
             int fd = open(pathname, O_CLOEXEC | O_WRONLY);
             if (fd == -1) send_error("open");
-            int nwritten = write(fd, ptr, len);
-            if (nwritten == -1) send_error("write");
+            if (write(fd, ptr, len) == -1) send_error("write");
             close(fd);
         };
 
@@ -162,7 +161,12 @@ extern "C" status snowflake_perform_run_command_gist(
         write_file("/proc/self/uid_map", uid_map.c_str(), uid_map.size());
         write_file("/proc/self/gid_map", gid_map.c_str(), gid_map.size());
 
-        _exit(0);
+        // Configure standard streams.
+        close(0);
+        if (dup2(log_file, 1) == -1) send_error("dup2");
+        if (dup2(log_file, 2) == -1) send_error("dup2");
+
+        send_error("execve");
 
     }
 
@@ -224,8 +228,7 @@ extern "C" status snowflake_perform_run_command_gist(
 
     // Even though the child has terminated, we need to call waitpid.
     // This retrieves the wait status and cleans up resources.
-    int waitpid_pid = waitpid(pid, &wstatus, 0);
-    if (waitpid_pid != pid)
+    if (waitpid(pid, &wstatus, 0) != pid)
         return status::failure_waitpid;
 
     // Child has been waited for by now.

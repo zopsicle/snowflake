@@ -1,4 +1,4 @@
-use {super::{Perform, Result}, std::io};
+use {super::{Perform, Result}, std::{io, os::unix::io::AsRawFd}};
 
 #[repr(C)]
 enum status
@@ -16,10 +16,11 @@ enum status
 extern "C"
 {
     fn snowflake_perform_run_command_gist(
-        wstatus: &mut libc::c_int,
-        errbuf:  *mut u8,
-        errlen:  libc::size_t,
-        timeout: libc::timespec,
+        wstatus:  &mut libc::c_int,
+        errbuf:   *mut u8,
+        errlen:   libc::size_t,
+        log_file: libc::c_int,
+        timeout:  libc::timespec,
     ) -> status;
 }
 
@@ -33,6 +34,7 @@ pub fn perform_run_command(perform: &Perform) -> Result
             &mut wstatus,
             errbuf.as_mut_ptr(),
             errbuf.len(),
+            perform.log.as_raw_fd(),
             timeout,
         )
     };
