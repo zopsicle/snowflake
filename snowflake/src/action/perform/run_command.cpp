@@ -62,11 +62,14 @@ namespace
 
 /// The gist of perform_run_command.
 extern "C" status snowflake_perform_run_command_gist(
-    int&        wstatus,
-    char*       errbuf,
-    std::size_t errlen,
-    int         log_file,
-    timespec    timeout
+    int&         wstatus,
+    char*        errbuf,
+    std::size_t  errlen,
+    int          log_file,
+    char const*  execve_pathname,
+    char* const* execve_argv,
+    char* const* execve_envp,
+    timespec     timeout
 )
 {
 
@@ -166,6 +169,8 @@ extern "C" status snowflake_perform_run_command_gist(
         if (dup2(log_file, 1) == -1) send_error("dup2");
         if (dup2(log_file, 2) == -1) send_error("dup2");
 
+        // Start the specified program.
+        execve(execve_pathname, execve_argv, execve_envp);
         send_error("execve");
 
     }
