@@ -1,6 +1,9 @@
 //! Basenames of pathnames.
 
-use {std::{ffi::OsStr, os::unix::ffi::OsStrExt, sync::Arc}, thiserror::Error};
+use {
+    std::{ffi::OsStr, os::unix::ffi::OsStrExt, path::Path, sync::Arc},
+    thiserror::Error,
+};
 
 /// Basename of a pathname.
 ///
@@ -53,6 +56,12 @@ impl Basename
         &self.inner
     }
 
+    /// The underlying path.
+    pub fn as_path(&self) -> &Path
+    {
+        Path::new(self.as_os_str())
+    }
+
     /// The underlying bytes.
     pub fn as_bytes(&self) -> &[u8]
     {
@@ -67,5 +76,13 @@ impl From<&Basename> for Arc<Basename>
         let arc = Arc::<OsStr>::from(other.as_os_str());
         // SAFETY: OsStr and Basename have the same representation.
         unsafe { Arc::from_raw(Arc::into_raw(arc) as *const Basename) }
+    }
+}
+
+impl AsRef<Path> for Basename
+{
+    fn as_ref(&self) -> &Path
+    {
+        self.as_path()
     }
 }

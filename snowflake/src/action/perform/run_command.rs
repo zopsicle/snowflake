@@ -1,8 +1,10 @@
 use {
+    crate::basename::Basename,
     super::{Error, Perform, Result, Summary},
     os_ext::{getgid, getuid, pipe2},
     scope_exit::ScopeExit,
     std::{
+        borrow::Cow,
         ffi::{CStr, CString},
         fs::File,
         io::{self, Read},
@@ -16,17 +18,19 @@ use {
         path::Path,
         process::ExitStatus,
         ptr::{addr_of, addr_of_mut, null, null_mut},
+        sync::Arc,
         time::Duration,
     },
 };
 
-pub fn perform_run_command(
+pub fn perform_run_command<'a>(
     perform: &Perform,
+    outputs: &'a [Arc<Basename>],
     program: &Path,
     arguments: &[CString],
     environment: &[CString],
     timeout: Duration,
-) -> Result
+) -> Result<'a>
 {
     // Prepare writes to /proc/self/gid_map and /proc/self/uid_map.
     // These files map users and groups inside the container
@@ -209,7 +213,16 @@ pub fn perform_run_command(
     assert_eq!(waitpid, pid, "pidfd reported that child has terminated");
     ExitStatus::from_raw(wstatus).exit_ok()?;
 
-    Ok(Summary{warnings: false})
+    // Collect all the output paths.
+    let outputs_dir =
+        Path::new("outputs");
+    let outputs =
+        outputs.iter()
+        .map(|b| outputs_dir.join(&**b))
+        .map(|p| Cow::Owned(p))
+        .collect();
+
+    Ok(Summary{outputs, warnings: false})
 }
 
 /// Arguments to the clone3 system call.
@@ -262,10 +275,11 @@ mod tests
     {
         use std::os::unix::io::AsFd;
         let log = std::fs::File::open("/dev/null").unwrap();
-        let outputs = std::fs::File::open("/dev/null").unwrap();
-        let perform = Perform{log: log.as_fd(), outputs: outputs.as_fd()};
+        let scratch = std::fs::File::open("/dev/null").unwrap();
+        let perform = Perform{log: log.as_fd(), scratch: scratch.as_fd()};
         perform_run_command(
             &perform,
+            &[],
             Path::new("/run/current-system/sw/bin/sleep"),
             &[
                 CString::new("sleep").unwrap(),
