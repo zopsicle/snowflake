@@ -70,7 +70,7 @@ fn gist(
     let gid_map = format!("0 {} 1\n", getgid());
 
     // For some unknown reason, fchdir(scratch) keeps mount from working.
-    // But chdir(scratch_path) works, so we do that instead.
+    // But with chdir(scratch_path) it works, so we do that instead.
     let scratch_magic = format!("/proc/self/fd/{}", scratch.as_raw_fd());
     let scratch_path: CString = readlink(Path::new(&scratch_magic))?;
 
@@ -205,6 +205,11 @@ fn gist(
 
         // Change the root directory.
         enforce("chroot", unsafe { libc::chroot(b".\0".as_ptr().cast()) } != -1);
+
+        // Change the working directory to the build directory.
+        // Must be an absolute path, because chroot doesn't update it.
+        let chdir = unsafe { libc::chdir(b"/build\0".as_ptr().cast()) };
+        enforce("chdir", chdir != -1);
 
         // Run the specified program.
         unsafe { libc::execve(program.as_ptr(), execve_argv, execve_envp) };
@@ -378,8 +383,8 @@ mod tests
     fn f()
     {
         use std::os::unix::io::AsFd;
-        let log = std::fs::File::open("/dev/null").unwrap();
-        let scratch_path = "/home/r/Garbage/sandbox";
+        let log = std::fs::File::create("/home/r/Garbage/snowflake-log").unwrap();
+        let scratch_path = "/home/r/Garbage/snowflake-sandbox";
         let _ = remove_dir_all(scratch_path);
         mkdir(Path::new(scratch_path), 0o755).unwrap();
         let scratch = std::fs::File::open(scratch_path).unwrap();
@@ -387,10 +392,10 @@ mod tests
         perform_run_command(
             &perform,
             &[],
-            Path::new("/nix/store/wyjmlzvqkkq0pn41aag1jvinc62aldb1-coreutils-9.0/bin/sleep"),
+            Path::new("/nix/store/wyjmlzvqkkq0pn41aag1jvinc62aldb1-coreutils-9.0/bin/ls"),
             &[
-                CString::new("sleep").unwrap(),
-                CString::new("2").unwrap(),
+                CString::new("ls").unwrap(),
+                CString::new("/").unwrap(),
             ],
             &[],
             Duration::from_secs(1),
