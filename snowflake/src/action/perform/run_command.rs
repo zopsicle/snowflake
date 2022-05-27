@@ -141,6 +141,20 @@ fn gist(
             }
         };
 
+        // Write the /proc/self/* files prepared above.
+        unsafe {
+            let write_file = |pathname: &'static [u8], data: &[u8]| {
+                let fd = libc::open(pathname.as_ptr().cast(), libc::O_WRONLY, 0);
+                enforce("open", fd != -1);
+                let nwritten = libc::write(fd, data.as_ptr().cast(), data.len());
+                enforce("write", nwritten == data.len() as isize);
+                libc::close(fd);
+            };
+            write_file(b"/proc/self/setgroups\0", setgroups.as_bytes());
+            write_file(b"/proc/self/uid_map\0", uid_map.as_bytes());
+            write_file(b"/proc/self/gid_map\0", gid_map.as_bytes());
+        }
+
         // Configure the standard streams stdin, stdout, and stderr.
         // dup2 turns off CLOEXEC which is exactly what we need.
         let log = log.as_raw_fd();
