@@ -1,6 +1,7 @@
 //! Snowflake build system.
 
 #![doc(html_logo_url = "/snowflake-manual/_static/logo.svg")]
+#![feature(assert_matches)]
 #![feature(exit_status_error)]
 #![feature(io_error_other)]
 #![feature(io_safety)]

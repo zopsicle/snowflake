@@ -16,4 +16,6 @@ in
             rustChannel.rust
         ];
 
+        SNOWFLAKE_COREUTILS = nixpkgs.coreutils;
+
     }

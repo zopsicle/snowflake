@@ -377,28 +377,41 @@ fn prepare_argv_envp<'a, I, A>(cstrings: I)
 #[cfg(test)]
 mod tests
 {
-    use {super::*, os_ext::mkdir, std::fs::remove_dir_all};
+    use {
+        super::*,
+        os_ext::{O_DIRECTORY, O_PATH, O_WRONLY, mkdtemp, open},
+        scope_exit::scope_exit,
+        std::{
+            assert_matches::assert_matches,
+            env::var_os,
+            fs::remove_dir_all,
+            os::unix::io::AsFd,
+        },
+    };
 
     #[test]
-    fn f()
+    fn timeout()
     {
-        use std::os::unix::io::AsFd;
-        let log = std::fs::File::create("/home/r/Garbage/snowflake-log").unwrap();
-        let scratch_path = "/home/r/Garbage/snowflake-sandbox";
-        let _ = remove_dir_all(scratch_path);
-        mkdir(Path::new(scratch_path), 0o755).unwrap();
-        let scratch = std::fs::File::open(scratch_path).unwrap();
-        let perform = Perform{log: log.as_fd(), scratch: scratch.as_fd()};
-        perform_run_command(
-            &perform,
-            &[],
-            Path::new("/nix/store/wyjmlzvqkkq0pn41aag1jvinc62aldb1-coreutils-9.0/bin/ls"),
+        let path = mkdtemp(Path::new("/tmp/snowflake-test-XXXXXX")).unwrap();
+        scope_exit! { let _ = remove_dir_all(&path); }
+
+        let coreutils = var_os("SNOWFLAKE_COREUTILS").unwrap();
+
+        let log = open(Path::new("/dev/null"), O_WRONLY, 0).unwrap();
+        let scratch = open(&path, O_DIRECTORY | O_PATH, 0).unwrap();
+
+        let result = gist(
+            log.as_fd(),
+            scratch.as_fd(),
+            &Path::new(&coreutils).join("bin/sleep"),
             &[
-                CString::new("ls").unwrap(),
-                CString::new("/").unwrap(),
+                CString::new("sleep").unwrap(),
+                CString::new("0.060").unwrap(),
             ],
             &[],
-            Duration::from_secs(1),
-        ).unwrap();
+            Duration::from_millis(50),
+        );
+
+        assert_matches!(result, Err(Error::Timeout));
     }
 }
