@@ -1,7 +1,7 @@
 use {
     crate::basename::Basename,
     super::{Error, Perform, Summary},
-    os_ext::{getgid, getuid, pipe2},
+    os_ext::{getgid, getuid, mkdirat, pipe2, readlink},
     scope_exit::ScopeExit,
     std::{
         ffi::{CStr, CString},
@@ -32,7 +32,8 @@ pub fn perform_run_command(
 ) -> Result<Summary, Error>
 {
     // Perform the gist of the performing.
-    gist(perform.log, program, arguments, environment, timeout)?;
+    gist(perform.log, perform.scratch, program,
+         arguments, environment, timeout)?;
 
     // Collect all the output paths.
     let build_dir = Path::new("build");
@@ -43,18 +44,43 @@ pub fn perform_run_command(
 
 fn gist(
     log: BorrowedFd,
+    scratch: BorrowedFd,
     program: &Path,
     arguments: &[CString],
     environment: &[CString],
     timeout: Duration,
 ) -> Result<(), Error>
 {
+    // Set up directory hierarchy in scratch directory.
+    // The scratch directory will be chrooted into by the child.
+    mkdirat(Some(scratch), Path::new("bin"),       0o755)?;
+    mkdirat(Some(scratch), Path::new("dev"),       0o755)?;
+    mkdirat(Some(scratch), Path::new("nix"),       0o755)?;
+    mkdirat(Some(scratch), Path::new("nix/store"), 0o755)?;
+    mkdirat(Some(scratch), Path::new("proc"),      0o555)?;
+    mkdirat(Some(scratch), Path::new("usr"),       0o755)?;
+    mkdirat(Some(scratch), Path::new("usr/bin"),   0o755)?;
+    mkdirat(Some(scratch), Path::new("build"),     0o755)?;
+
     // Prepare writes to /proc/self/gid_map and /proc/self/uid_map.
     // These files map users and groups inside the container
     // to users and groups outside the container.
     let setgroups = "deny\n";
     let uid_map = format!("0 {} 1\n", getuid());
     let gid_map = format!("0 {} 1\n", getgid());
+
+    // For some unknown reason, fchdir(scratch) keeps mount from working.
+    // But chdir(scratch_path) works, so we do that instead.
+    let scratch_magic = format!("/proc/self/fd/{}", scratch.as_raw_fd());
+    let scratch_path: CString = readlink(Path::new(&scratch_magic))?;
+
+    // Prepare mounts, with targets relative to the scratch directory.
+    let mut mounts = Vec::new();
+    let root_flags = libc::MS_PRIVATE | libc::MS_REC;
+    let proc_flags = libc::MS_NODEV | libc::MS_NOEXEC | libc::MS_NOSUID;
+    PreparedMount::new(&mut mounts, "none", "/", "", root_flags, "");
+    PreparedMount::new(&mut mounts, "proc", "proc", "proc", proc_flags, "");
+    PreparedMount::new_rdonly_bind(&mut mounts, "/nix/store", "nix/store");
 
     // Prepare arguments to execve.
     let program = CString::new(program.as_os_str().as_bytes())?;
@@ -164,6 +190,22 @@ fn gist(
             enforce("dup2 stderr", libc::dup2(log, 2) != -1);
         }
 
+        // Change the working directory.
+        enforce("chdir", unsafe { libc::chdir(scratch_path.as_ptr()) } != -1);
+
+        // Apply the prepared mounts.
+        for mount in mounts {
+            let mount = unsafe {
+                libc::mount(mount.source.as_ptr(), mount.target.as_ptr(),
+                            mount.filesystemtype.as_ptr(), mount.mountflags,
+                            mount.data.as_ptr().cast())
+            };
+            enforce("mount", mount != -1);
+        }
+
+        // Change the root directory.
+        enforce("chroot", unsafe { libc::chroot(b".\0".as_ptr().cast()) } != -1);
+
         // Run the specified program.
         unsafe { libc::execve(program.as_ptr(), execve_argv, execve_envp) };
         enforce("execve", false);
@@ -267,6 +309,45 @@ struct clone_args
     cgroup:       u64,
 }
 
+/// Prepared arguments to mount.
+struct PreparedMount
+{
+    source:         CString,
+    target:         CString,
+    filesystemtype: CString,
+    mountflags:     libc::c_ulong,
+    data:           CString,
+}
+
+impl PreparedMount
+{
+    /// Create a mount.
+    fn new(into: &mut Vec<Self>, source: &str, target: &str,
+           filesystemtype: &str, mountflags: libc::c_ulong, data: &str)
+    {
+        let this = Self{
+            source:         CString::new(source).unwrap(),
+            target:         CString::new(target).unwrap(),
+            filesystemtype: CString::new(filesystemtype).unwrap(),
+            mountflags:     mountflags,
+            data:           CString::new(data).unwrap(),
+        };
+        into.push(this);
+    }
+
+    /// Create a read-only bind mount.
+    ///
+    /// This is more involved than simply passing `MS_BIND | MS_RDONLY`.
+    /// See https://unix.stackexchange.com/a/492462 for more information.
+    fn new_rdonly_bind(into: &mut Vec<Self>, source: &str, target: &str)
+    {
+        let flags_1 = libc::MS_BIND | libc::MS_REC;
+        let flags_2 = flags_1 | libc::MS_RDONLY | libc::MS_REMOUNT;
+        Self::new(into, source, target, "", flags_1, "");
+        Self::new(into, "none", target, "", flags_2, "");
+    }
+}
+
 /// Prepare the argv or envp arguments to `execve`.
 ///
 /// `execve` expects these to be arrays of nul-terminated strings,
@@ -291,19 +372,22 @@ fn prepare_argv_envp<'a, I, A>(cstrings: I)
 #[cfg(test)]
 mod tests
 {
-    use super::*;
+    use {super::*, os_ext::mkdir, std::fs::remove_dir_all};
 
     #[test]
     fn f()
     {
         use std::os::unix::io::AsFd;
         let log = std::fs::File::open("/dev/null").unwrap();
-        let scratch = std::fs::File::open("/dev/null").unwrap();
+        let scratch_path = "/home/r/Garbage/sandbox";
+        let _ = remove_dir_all(scratch_path);
+        mkdir(Path::new(scratch_path), 0o755).unwrap();
+        let scratch = std::fs::File::open(scratch_path).unwrap();
         let perform = Perform{log: log.as_fd(), scratch: scratch.as_fd()};
         perform_run_command(
             &perform,
             &[],
-            Path::new("/run/current-system/sw/bin/sleep"),
+            Path::new("/nix/store/wyjmlzvqkkq0pn41aag1jvinc62aldb1-coreutils-9.0/bin/sleep"),
             &[
                 CString::new("sleep").unwrap(),
                 CString::new("2").unwrap(),
