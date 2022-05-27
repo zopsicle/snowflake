@@ -1,17 +1,16 @@
 use {
     crate::basename::Basename,
-    super::{Error, Perform, Result, Summary},
+    super::{Error, Perform, Summary},
     os_ext::{getgid, getuid, pipe2},
     scope_exit::ScopeExit,
     std::{
-        borrow::Cow,
         ffi::{CStr, CString},
         fs::File,
         io::{self, Read},
         mem::{forget, size_of_val, zeroed},
         os::unix::{
             ffi::OsStrExt,
-            io::{AsRawFd, FromRawFd, OwnedFd},
+            io::{AsRawFd, BorrowedFd, FromRawFd, OwnedFd},
             process::ExitStatusExt,
         },
         panic::always_abort,
@@ -23,14 +22,32 @@ use {
     },
 };
 
-pub fn perform_run_command<'a>(
+pub fn perform_run_command(
     perform: &Perform,
-    outputs: &'a [Arc<Basename>],
+    outputs: &[Arc<Basename>],
     program: &Path,
     arguments: &[CString],
     environment: &[CString],
     timeout: Duration,
-) -> Result<'a>
+) -> Result<Summary, Error>
+{
+    // Perform the gist of the performing.
+    gist(perform.log, program, arguments, environment, timeout)?;
+
+    // Collect all the output paths.
+    let build_dir = Path::new("build");
+    let outputs = outputs.iter().map(|b| build_dir.join(&**b)).collect();
+
+    Ok(Summary{outputs, warnings: false})
+}
+
+fn gist(
+    log: BorrowedFd,
+    program: &Path,
+    arguments: &[CString],
+    environment: &[CString],
+    timeout: Duration,
+) -> Result<(), Error>
 {
     // Prepare writes to /proc/self/gid_map and /proc/self/uid_map.
     // These files map users and groups inside the container
@@ -114,8 +131,8 @@ pub fn perform_run_command<'a>(
         // and then immediately terminate the child process.
         let enforce = |message: &'static str, condition: bool| {
             if !condition {
+                let pipe_w = pipe_w.as_raw_fd();
                 unsafe {
-                    let pipe_w = pipe_w.as_raw_fd();
                     let errnum = (*libc::__errno_location(): i32).to_ne_bytes();
                     libc::write(pipe_w, errnum.as_ptr().cast(), 4);
                     libc::write(pipe_w, message.as_ptr().cast(), message.len());
@@ -124,8 +141,9 @@ pub fn perform_run_command<'a>(
             }
         };
 
-        // Configure standard streams.
-        let log = perform.log.as_raw_fd();
+        // Configure the standard streams stdin, stdout, and stderr.
+        // dup2 turns off CLOEXEC which is exactly what we need.
+        let log = log.as_raw_fd();
         unsafe {
             enforce("close stdin", libc::close(0) != -1);
             enforce("dup2 stdout", libc::dup2(log, 1) != -1);
@@ -213,16 +231,7 @@ pub fn perform_run_command<'a>(
     assert_eq!(waitpid, pid, "pidfd reported that child has terminated");
     ExitStatus::from_raw(wstatus).exit_ok()?;
 
-    // Collect all the output paths.
-    let outputs_dir =
-        Path::new("outputs");
-    let outputs =
-        outputs.iter()
-        .map(|b| outputs_dir.join(&**b))
-        .map(|p| Cow::Owned(p))
-        .collect();
-
-    Ok(Summary{outputs, warnings: false})
+    Ok(())
 }
 
 /// Arguments to the clone3 system call.
