@@ -16,6 +16,7 @@ in
             rustChannel.rust
         ];
 
+        SNOWFLAKE_BASH      = nixpkgs.bash;
         SNOWFLAKE_COREUTILS = nixpkgs.coreutils;
 
     }

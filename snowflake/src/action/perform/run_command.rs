@@ -379,40 +379,66 @@ mod tests
 {
     use {
         super::*,
-        os_ext::{O_DIRECTORY, O_PATH, O_WRONLY, mkdtemp, open},
+        os_ext::{O_DIRECTORY, O_PATH, O_RDWR, O_TMPFILE, mkdtemp, open},
         scope_exit::scope_exit,
         std::{
             assert_matches::assert_matches,
             env::var_os,
             fs::remove_dir_all,
+            io::Seek,
             os::unix::io::AsFd,
         },
     };
 
+    /// Call the gist function and return the result and the log file.
     fn call_gist(program: &Path, arguments: &[CString], timeout: Duration)
-        -> Result<(), Error>
+        -> (Result<(), Error>, File)
     {
         let path = mkdtemp(Path::new("/tmp/snowflake-test-XXXXXX")).unwrap();
         scope_exit! { let _ = remove_dir_all(&path); }
 
-        let log = open(Path::new("/dev/null"), O_WRONLY, 0).unwrap();
+        let log = open(Path::new("."), O_RDWR | O_TMPFILE, 0o644).unwrap();
         let scratch = open(&path, O_DIRECTORY | O_PATH, 0).unwrap();
 
-        gist(
+        let result = gist(
             log.as_fd(),
             scratch.as_fd(),
             program,
             arguments,
             &[],
             timeout,
-        )
+        );
+
+        let mut log = File::from(log);
+        log.rewind().unwrap();
+
+        (result, log)
+    }
+
+    #[test]
+    fn pid_1()
+    {
+        let bash = var_os("SNOWFLAKE_BASH").unwrap();
+        let (result, mut log) = call_gist(
+            &Path::new(&bash).join("bin/bash"),
+            &[
+                CString::new("sh").unwrap(),
+                CString::new("-c").unwrap(),
+                CString::new("echo $$").unwrap(),
+            ],
+            Duration::from_millis(50),
+        );
+        assert_matches!(result, Ok(()));
+        let mut buf = Vec::new();
+        log.read_to_end(&mut buf).unwrap();
+        assert_eq!(buf, b"1\n");
     }
 
     #[test]
     fn timeout()
     {
         let coreutils = var_os("SNOWFLAKE_COREUTILS").unwrap();
-        let result = call_gist(
+        let (result, _) = call_gist(
             &Path::new(&coreutils).join("bin/sleep"),
             &[
                 CString::new("sleep").unwrap(),
@@ -427,7 +453,7 @@ mod tests
     fn unsuccessful_termination()
     {
         let coreutils = var_os("SNOWFLAKE_COREUTILS").unwrap();
-        let result = call_gist(
+        let (result, _) = call_gist(
             &Path::new(&coreutils).join("bin/false"),
             &[CString::new("false").unwrap()],
             Duration::from_millis(50),

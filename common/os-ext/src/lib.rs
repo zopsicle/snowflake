@@ -34,7 +34,8 @@ pub use {
     self::{dirent_::*, fcntl::*, stdlib::*, sys_stat::*, unistd::*},
     libc::{
         AT_SYMLINK_NOFOLLOW,
-        O_CREAT, O_DIRECTORY, O_NOFOLLOW, O_PATH, O_RDONLY, O_WRONLY,
+        O_CREAT, O_DIRECTORY, O_NOFOLLOW, O_PATH,
+        O_RDONLY, O_RDWR, O_TMPFILE, O_WRONLY,
         S_IFDIR, S_IFLNK, S_IFMT, S_IFREG, S_IXUSR,
         gid_t, uid_t,
     },
