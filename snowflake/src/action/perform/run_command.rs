@@ -389,29 +389,49 @@ mod tests
         },
     };
 
-    #[test]
-    fn timeout()
+    fn call_gist(program: &Path, arguments: &[CString], timeout: Duration)
+        -> Result<(), Error>
     {
         let path = mkdtemp(Path::new("/tmp/snowflake-test-XXXXXX")).unwrap();
         scope_exit! { let _ = remove_dir_all(&path); }
 
-        let coreutils = var_os("SNOWFLAKE_COREUTILS").unwrap();
-
         let log = open(Path::new("/dev/null"), O_WRONLY, 0).unwrap();
         let scratch = open(&path, O_DIRECTORY | O_PATH, 0).unwrap();
 
-        let result = gist(
+        gist(
             log.as_fd(),
             scratch.as_fd(),
+            program,
+            arguments,
+            &[],
+            timeout,
+        )
+    }
+
+    #[test]
+    fn timeout()
+    {
+        let coreutils = var_os("SNOWFLAKE_COREUTILS").unwrap();
+        let result = call_gist(
             &Path::new(&coreutils).join("bin/sleep"),
             &[
                 CString::new("sleep").unwrap(),
                 CString::new("0.060").unwrap(),
             ],
-            &[],
             Duration::from_millis(50),
         );
-
         assert_matches!(result, Err(Error::Timeout));
+    }
+
+    #[test]
+    fn unsuccessful_termination()
+    {
+        let coreutils = var_os("SNOWFLAKE_COREUTILS").unwrap();
+        let result = call_gist(
+            &Path::new(&coreutils).join("bin/false"),
+            &[CString::new("false").unwrap()],
+            Duration::from_millis(50),
+        );
+        assert_matches!(result, Err(Error::ExitStatus(_)));
     }
 }
