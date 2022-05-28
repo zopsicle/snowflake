@@ -58,6 +58,7 @@ fn gist(
     mkdirat(Some(scratch), Path::new("nix"),       0o755)?;
     mkdirat(Some(scratch), Path::new("nix/store"), 0o755)?;
     mkdirat(Some(scratch), Path::new("proc"),      0o555)?;  // (sic)
+    mkdirat(Some(scratch), Path::new("root"),      0o755)?;
     mkdirat(Some(scratch), Path::new("usr"),       0o755)?;
     mkdirat(Some(scratch), Path::new("usr/bin"),   0o755)?;
     mkdirat(Some(scratch), Path::new("build"),     0o755)?;
