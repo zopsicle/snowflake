@@ -53,6 +53,19 @@ mod unistd;
 #[allow(missing_docs, non_camel_case_types)]
 pub type stat = libc::stat;
 
+/// Convenient macro for creating a literal C string.
+#[macro_export]
+macro_rules! cstr
+{
+    ($lit:literal) => {
+        unsafe {
+            ::std::ffi::CStr::from_ptr(
+                ::std::concat!($lit, "\0").as_ptr().cast()
+            )
+        }
+    };
+}
+
 /// Call `f` until it no longer fails with `EINTR`.
 fn retry_on_eintr<F, T>(mut f: F) -> io::Result<T>
     where F: FnMut() -> io::Result<T>

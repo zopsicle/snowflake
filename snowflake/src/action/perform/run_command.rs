@@ -1,7 +1,16 @@
 use {
     crate::basename::Basename,
     super::{Error, Perform, Summary},
-    os_ext::{getgid, getuid, mkdirat, pipe2, readlink},
+    os_ext::{
+        cstr,
+        getgid,
+        getuid,
+        mkdirat,
+        mknodat,
+        pipe2,
+        readlink,
+        symlinkat,
+    },
     scope_exit::ScopeExit,
     std::{
         ffi::{CStr, CString},
@@ -51,6 +60,10 @@ fn gist(
     timeout: Duration,
 ) -> Result<(), Error>
 {
+    // Prepared mounts, with targets relative to the scratch directory.
+    // This vec will be appended onto at various points in this function.
+    let mut mounts = Vec::new();
+
     // Set up directory hierarchy in scratch directory.
     // The scratch directory will be chrooted into by the child.
     mkdirat(Some(scratch), Path::new("bin"),       0o755)?;
@@ -62,6 +75,11 @@ fn gist(
     mkdirat(Some(scratch), Path::new("usr"),       0o755)?;
     mkdirat(Some(scratch), Path::new("usr/bin"),   0o755)?;
     mkdirat(Some(scratch), Path::new("build"),     0o755)?;
+
+    // Create symbolic links for the standard streams.
+    symlinkat(cstr!("/proc/self/fd/0"), Some(scratch), Path::new("dev/stdin"))?;
+    symlinkat(cstr!("/proc/self/fd/1"), Some(scratch), Path::new("dev/stdout"))?;
+    symlinkat(cstr!("/proc/self/fd/2"), Some(scratch), Path::new("dev/stderr"))?;
 
     // Prepare writes to /proc/self/gid_map and /proc/self/uid_map.
     // These files map users and groups inside the container
@@ -75,13 +93,27 @@ fn gist(
     let scratch_magic = format!("/proc/self/fd/{}", scratch.as_raw_fd());
     let scratch_path: CString = readlink(Path::new(&scratch_magic))?;
 
-    // Prepare mounts, with targets relative to the scratch directory.
-    let mut mounts = Vec::new();
+    // systemd mounts / as MS_SHARED, but MS_PRIVATE is more isolated.
     let root_flags = libc::MS_PRIVATE | libc::MS_REC;
-    let proc_flags = libc::MS_NODEV | libc::MS_NOEXEC | libc::MS_NOSUID;
     PreparedMount::new(&mut mounts, "none", "/", "", root_flags, "");
+
+    // Mount the /proc file system which many programs don't work without.
+    let proc_flags = libc::MS_NODEV | libc::MS_NOEXEC | libc::MS_NOSUID;
     PreparedMount::new(&mut mounts, "proc", "proc", "proc", proc_flags, "");
+
+    // Mount the Nix store.
     PreparedMount::new_rdonly_bind(&mut mounts, "/nix/store", "nix/store");
+
+    // Mount the device files onto fresh regular files.
+    // We need to mount them, because creating device files directly
+    // fails with EPERM, even when mknod is called inside the container.
+    for path in ["null", "zero", "full", "random", "urandom"] {
+        let absolute = format!("/dev/{}", path);
+        let relative = format!("dev/{}", path);
+        let flags = libc::MS_BIND | libc::MS_REC;
+        mknodat(Some(scratch), Path::new(&relative), 0, 0)?;
+        PreparedMount::new(&mut mounts, &absolute, &relative, "", flags, "");
+    }
 
     // Prepare arguments to execve.
     let program = CString::new(program.as_os_str().as_bytes())?;

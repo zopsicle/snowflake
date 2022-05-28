@@ -66,3 +66,35 @@ pub fn mkdirat(dirfd: Option<BorrowedFd>, pathname: &Path, mode: libc::mode_t)
         Ok(())
     })
 }
+
+/// Equivalent to [`mknodat`] with [`None`] passed for `dirfd`.
+pub fn mknod(pathname: &Path, mode: libc::mode_t, dev: libc::dev_t)
+    -> io::Result<()>
+{
+    mknodat(None, pathname, mode, dev)
+}
+
+/// Call mknodat(2) with the given arguments.
+///
+/// If `dirfd` is [`None`], `AT_FDCWD` is passed.
+pub fn mknodat(
+    dirfd: Option<BorrowedFd>,
+    pathname: &Path,
+    mode: libc::mode_t,
+    dev: libc::dev_t,
+) -> io::Result<()>
+{
+    let dirfd = dirfd.map(|fd| fd.as_raw_fd()).unwrap_or(libc::AT_FDCWD);
+    let path = CString::new(pathname.as_os_str().as_bytes())?;
+
+    retry_on_eintr(|| {
+        // SAFETY: path is NUL-terminated.
+        let result = unsafe { libc::mknodat(dirfd, path.as_ptr(), mode, dev) };
+
+        if result == -1 {
+            return Err(io::Error::last_os_error());
+        }
+
+        Ok(())
+    })
+}
