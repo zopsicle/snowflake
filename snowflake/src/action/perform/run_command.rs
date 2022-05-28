@@ -391,7 +391,7 @@ mod tests
     };
 
     /// Call the gist function and return the result and the log file.
-    fn call_gist(program: &Path, arguments: &[CString], timeout: Duration)
+    fn call_gist(program: &Path, arguments: &[&str], timeout: Duration)
         -> (Result<(), Error>, File)
     {
         let path = mkdtemp(Path::new("/tmp/snowflake-test-XXXXXX")).unwrap();
@@ -400,11 +400,16 @@ mod tests
         let log = open(Path::new("."), O_RDWR | O_TMPFILE, 0o644).unwrap();
         let scratch = open(&path, O_DIRECTORY | O_PATH, 0).unwrap();
 
+        let arguments: Vec<CString> =
+            arguments.iter()
+            .map(|&s| CString::new(s).unwrap())
+            .collect();
+
         let result = gist(
             log.as_fd(),
             scratch.as_fd(),
             program,
-            arguments,
+            &arguments,
             &[],
             timeout,
         );
@@ -421,11 +426,7 @@ mod tests
         let bash = var_os("SNOWFLAKE_BASH").unwrap();
         let (result, mut log) = call_gist(
             &Path::new(&bash).join("bin/bash"),
-            &[
-                CString::new("sh").unwrap(),
-                CString::new("-c").unwrap(),
-                CString::new("echo $$").unwrap(),
-            ],
+            &["sh", "-c", "echo $$"],
             Duration::from_millis(50),
         );
         assert_matches!(result, Ok(()));
@@ -440,10 +441,7 @@ mod tests
         let coreutils = var_os("SNOWFLAKE_COREUTILS").unwrap();
         let (result, _) = call_gist(
             &Path::new(&coreutils).join("bin/sleep"),
-            &[
-                CString::new("sleep").unwrap(),
-                CString::new("0.060").unwrap(),
-            ],
+            &["sleep", "0.060"],
             Duration::from_millis(50),
         );
         assert_matches!(result, Err(Error::Timeout));
@@ -455,7 +453,7 @@ mod tests
         let coreutils = var_os("SNOWFLAKE_COREUTILS").unwrap();
         let (result, _) = call_gist(
             &Path::new(&coreutils).join("bin/false"),
-            &[CString::new("false").unwrap()],
+            &["false"],
             Duration::from_millis(50),
         );
         assert_matches!(result, Err(Error::ExitStatus(_)));
