@@ -79,10 +79,11 @@ fn write_file_at(
 ) -> io::Result<()>
 {
     let statbuf = fstatat(dirfd, path, AT_SYMLINK_NOFOLLOW)?;
+    f(&statbuf)?;
     match statbuf.st_mode & S_IFMT {
-        S_IFREG => { f(&statbuf)?; write_reg_at(writer, dirfd, path, &statbuf) },
-        S_IFDIR => { f(&statbuf)?; write_dir_at(writer, dirfd, path, f) },
-        S_IFLNK => { f(&statbuf)?; write_lnk_at(writer, dirfd, path) },
+        S_IFREG => write_reg_at(writer, dirfd, path, &statbuf),
+        S_IFDIR => write_dir_at(writer, dirfd, path, f),
+        S_IFLNK => write_lnk_at(writer, dirfd, path),
         _       => todo!("Return error about unsupported file type"),
     }
 }

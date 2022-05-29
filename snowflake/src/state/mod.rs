@@ -1,6 +1,9 @@
 //! Working with state directories.
 
+pub use self::cache_output::*;
+
 use {
+    crate::hash::Hash,
     os_ext::{O_DIRECTORY, O_PATH, mkdirat, open, openat},
     std::{
         io::{self, ErrorKind::AlreadyExists},
@@ -10,6 +13,8 @@ use {
         sync::atomic::{AtomicU32, Ordering::SeqCst},
     },
 };
+
+mod cache_output;
 
 // Paths to the different components of the state directory.
 const SCRATCHES_DIR:      &str = "scratches";
@@ -95,8 +100,19 @@ impl State
     /// using a content-addressable naming scheme.
     fn cached_outputs_dir(&self) -> io::Result<BorrowedFd>
     {
-        #![allow(unused)]  // TODO: Use this somewhere.
         self.ensure_open_dir_once(&self.cached_outputs_dir, CACHED_OUTPUTS_DIR)
+    }
+
+    /// Move a file to the output cache.
+    ///
+    /// This method computes the hash of the file
+    /// and checks that it qualifies for caching.
+    /// Then it renames the file so it is in the cache.
+    /// If an equivalent file was already cached, the file is not renamed.
+    pub fn cache_output(&self, dirfd: Option<BorrowedFd>, pathname: &Path)
+        -> Result<Hash, CacheOutputError>
+    {
+        self.cache_output_impl(dirfd, pathname)
     }
 
     /// Ensure that a directory exists and open it.

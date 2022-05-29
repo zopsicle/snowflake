@@ -31,12 +31,14 @@
 #![warn(missing_docs)]
 
 pub use {
-    self::{dirent_::*, fcntl::*, stdlib::*, sys_stat::*, unistd::*},
+    self::{dirent_::*, fcntl::*, stdio::*, stdlib::*, sys_stat::*, unistd::*},
     libc::{
         AT_SYMLINK_NOFOLLOW,
         O_CREAT, O_DIRECTORY, O_NOFOLLOW, O_PATH,
         O_RDONLY, O_RDWR, O_TMPFILE, O_WRONLY,
-        S_IFDIR, S_IFLNK, S_IFMT, S_IFREG, S_IXUSR,
+        RENAME_NOREPLACE,
+        S_IFDIR, S_IFIFO, S_IFLNK, S_IFMT, S_IFREG, S_IXUSR,
+        S_ISGID, S_ISUID, S_ISVTX,
         gid_t, uid_t,
     },
 };
@@ -47,6 +49,7 @@ pub mod cstr;
 
 mod dirent_;
 mod fcntl;
+mod stdio;
 mod stdlib;
 mod sys_stat;
 mod unistd;
