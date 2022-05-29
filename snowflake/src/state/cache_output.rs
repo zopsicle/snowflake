@@ -170,13 +170,8 @@ mod tests
 {
     use {
         super::*,
-        scope_exit::scope_exit,
         os_ext::{S_IFIFO, S_ISUID, cstr, linkat, mkdirat, mkdtemp, mknodat},
-        std::{
-            assert_matches::assert_matches,
-            fs::remove_dir_all,
-            os::unix::io::AsFd,
-        },
+        std::{assert_matches::assert_matches, os::unix::io::AsFd},
     };
 
     #[test]
@@ -186,7 +181,6 @@ mod tests
 
         // Create state directory.
         let path = mkdtemp(cstr!(b"/tmp/snowflake-test-XXXXXX")).unwrap();
-        scope_exit! { let _ = remove_dir_all(&path); }
 
         // Create scratch directory.
         let state = State::open(&path).unwrap();

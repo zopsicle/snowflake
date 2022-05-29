@@ -413,11 +413,9 @@ mod tests
     use {
         super::*,
         os_ext::{O_DIRECTORY, O_PATH, O_RDWR, O_TMPFILE, mkdtemp, open},
-        scope_exit::scope_exit,
         std::{
             assert_matches::assert_matches,
             env::var_os,
-            fs::remove_dir_all,
             io::Seek,
             os::unix::io::AsFd,
         },
@@ -428,7 +426,6 @@ mod tests
         -> (Result<(), Error>, File)
     {
         let path = mkdtemp(cstr!(b"/tmp/snowflake-test-XXXXXX")).unwrap();
-        scope_exit! { let _ = remove_dir_all(&path); }
 
         let log = open(cstr!(b"."), O_RDWR | O_TMPFILE, 0o644).unwrap();
         let scratch = open(&path, O_DIRECTORY | O_PATH, 0).unwrap();

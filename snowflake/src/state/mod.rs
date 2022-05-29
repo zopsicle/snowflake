@@ -147,8 +147,7 @@ mod tests
     use {
         super::*,
         os_ext::{O_CREAT, O_WRONLY, cstr, mkdtemp, readlink},
-        scope_exit::scope_exit,
-        std::{fs::remove_dir_all, os::unix::{ffi::OsStrExt, io::AsRawFd}},
+        std::{os::unix::{ffi::OsStrExt, io::AsRawFd}},
     };
 
     #[test]
@@ -156,7 +155,6 @@ mod tests
     {
         // Create state directory.
         let path = mkdtemp(cstr!(b"/tmp/snowflake-test-XXXXXX")).unwrap();
-        scope_exit! { let _ = remove_dir_all(&path); }
 
         // Create two scratch directories.
         let state = State::open(&path).unwrap();
