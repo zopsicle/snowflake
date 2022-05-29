@@ -47,12 +47,25 @@ use {
 /// and outputs are made read-only before being added to the output cache.
 /// The execute permission bit is ignored for directories
 /// as non-executable directories cannot be hashed.
-pub fn hash_file_at<P>(dirfd: Option<BorrowedFd>, path: P)
+pub fn hash_file_at(dirfd: Option<BorrowedFd>, path: impl AsRef<Path>)
     -> io::Result<Hash>
-    where P: AsRef<Path>
+{
+    hash_file_at_with(dirfd, path, |_| Ok(()))
+}
+
+/// Like [`hash_file_at`], but with customizable extra checks.
+///
+/// Hashing a file already stats every file to be hashed,
+/// so if you're interested in those statbufs,
+/// this function will call `f` for each of them.
+pub fn hash_file_at_with(
+    dirfd: Option<BorrowedFd>,
+    path:  impl AsRef<Path>,
+    mut f: impl FnMut(&stat) -> io::Result<()>,
+) -> io::Result<Hash>
 {
     let mut blake3 = Blake3::new();
-    write_file_at(&mut blake3, dirfd, path.as_ref())?;
+    write_file_at(&mut blake3, dirfd, path.as_ref(), &mut f)?;
     Ok(blake3.finalize())
 }
 
@@ -62,13 +75,14 @@ fn write_file_at(
     writer: &mut impl Write,
     dirfd:  Option<BorrowedFd>,
     path:   &Path,
+    f:      &mut dyn FnMut(&stat) -> io::Result<()>
 ) -> io::Result<()>
 {
     let statbuf = fstatat(dirfd, path, AT_SYMLINK_NOFOLLOW)?;
     match statbuf.st_mode & S_IFMT {
-        S_IFREG => write_reg_at(writer, dirfd, path, &statbuf),
-        S_IFDIR => write_dir_at(writer, dirfd, path),
-        S_IFLNK => write_lnk_at(writer, dirfd, path),
+        S_IFREG => { f(&statbuf)?; write_reg_at(writer, dirfd, path, &statbuf) },
+        S_IFDIR => { f(&statbuf)?; write_dir_at(writer, dirfd, path, f) },
+        S_IFLNK => { f(&statbuf)?; write_lnk_at(writer, dirfd, path) },
         _       => todo!("Return error about unsupported file type"),
     }
 }
@@ -106,9 +120,10 @@ fn write_reg_at(
 
 /// Write a directory.
 fn write_dir_at(
-    writer:  &mut impl Write,
-    dirfd:   Option<BorrowedFd>,
-    path:    &Path,
+    writer: &mut impl Write,
+    dirfd:  Option<BorrowedFd>,
+    path:   &Path,
+    f:      &mut dyn FnMut(&stat) -> io::Result<()>
 ) -> io::Result<()>
 {
     // Write directory metadata.
@@ -139,7 +154,7 @@ fn write_dir_at(
         writer.write_all(&[0])?;
 
         // Recursively write entry.
-        write_file_at(writer, Some(dir.as_fd()), &entry)?;
+        write_file_at(writer, Some(dir.as_fd()), &entry, f)?;
 
     }
 
@@ -205,7 +220,7 @@ mod tests
         let path = Path::new("testdata/hash_file_at");
 
         let mut buf = Vec::new();
-        write_file_at(&mut buf, None, path).unwrap();
+        write_file_at(&mut buf, None, path, &mut |_| Ok(())).unwrap();
         assert_eq!(buf, expected);
 
         let hash = hash_file_at(None, path).unwrap();
