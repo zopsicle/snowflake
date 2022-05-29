@@ -6,7 +6,7 @@ use {
         fs::File,
         io::{self, Write},
         os::unix::io::BorrowedFd,
-        path::{Path, PathBuf},
+        path::PathBuf,
         process::ExitStatusError,
     },
     thiserror::Error,

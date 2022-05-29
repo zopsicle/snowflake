@@ -43,6 +43,8 @@ pub use {
 
 use std::io::{self, ErrorKind::Interrupted};
 
+pub mod cstr;
+
 mod dirent_;
 mod fcntl;
 mod stdlib;
@@ -52,19 +54,6 @@ mod unistd;
 // Cannot `pub use` as that would also export the stat function.
 #[allow(missing_docs, non_camel_case_types)]
 pub type stat = libc::stat;
-
-/// Convenient macro for creating a literal C string.
-#[macro_export]
-macro_rules! cstr
-{
-    ($lit:literal) => {
-        unsafe {
-            ::std::ffi::CStr::from_ptr(
-                ::std::concat!($lit, "\0").as_ptr().cast()
-            )
-        }
-    };
-}
 
 /// Call `f` until it no longer fails with `EINTR`.
 fn retry_on_eintr<F, T>(mut f: F) -> io::Result<T>

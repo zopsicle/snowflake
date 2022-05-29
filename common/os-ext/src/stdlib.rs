@@ -1,36 +1,41 @@
 use {
-    crate::retry_on_eintr,
+    crate::{cstr::IntoCStr, retry_on_eintr},
     std::{
         ffi::{CString, OsString},
         io,
-        os::unix::ffi::{OsStrExt, OsStringExt},
-        path::{Path, PathBuf},
+        os::unix::ffi::OsStringExt,
+        path::PathBuf,
     },
 };
 
 /// Call mkdtemp(3) with the given arguments.
-pub fn mkdtemp(template: &Path) -> io::Result<PathBuf>
+pub fn mkdtemp<'a>(template: impl IntoCStr<'a>) -> io::Result<PathBuf>
 {
-    let template = CString::new(template.as_os_str().as_bytes())?;
+    #[inline(never)]
+    fn monomorphic(template: CString) -> io::Result<PathBuf>
+    {
+        // CString::as_mut_ptr does not exist.
+        let mut template = template.into_bytes_with_nul();
 
-    // CString::as_mut_ptr does not exist.
-    let mut template = template.into_bytes_with_nul();
+        retry_on_eintr(|| {
+            // SAFETY: template is NUL-terminated.
+            let ptr = unsafe {
+                libc::mkdtemp(template.as_mut_ptr() as *mut libc::c_char)
+            };
 
-    retry_on_eintr(|| {
-        // SAFETY: template is NUL-terminated.
-        let ptr = unsafe {
-            libc::mkdtemp(template.as_mut_ptr() as *mut libc::c_char)
-        };
+            if ptr.is_null() {
+                return Err(io::Error::last_os_error());
+            }
 
-        if ptr.is_null() {
-            return Err(io::Error::last_os_error());
-        }
+            Ok(())
+        })?;
 
-        Ok(())
-    })?;
+        // Remove NUL.
+        template.pop();
 
-    // Remove NUL.
-    template.pop();
+        Ok(PathBuf::from(OsString::from_vec(template)))
+    }
 
-    Ok(PathBuf::from(OsString::from_vec(template)))
+    let template = template.into_cstr()?;
+    monomorphic(template.into_owned())
 }

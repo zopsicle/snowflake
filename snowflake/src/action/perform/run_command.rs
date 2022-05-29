@@ -66,20 +66,20 @@ fn gist(
 
     // Set up directory hierarchy in scratch directory.
     // The scratch directory will be chrooted into by the child.
-    mkdirat(Some(scratch), Path::new("bin"),       0o755)?;
-    mkdirat(Some(scratch), Path::new("dev"),       0o755)?;
-    mkdirat(Some(scratch), Path::new("nix"),       0o755)?;
-    mkdirat(Some(scratch), Path::new("nix/store"), 0o755)?;
-    mkdirat(Some(scratch), Path::new("proc"),      0o555)?;  // (sic)
-    mkdirat(Some(scratch), Path::new("root"),      0o755)?;
-    mkdirat(Some(scratch), Path::new("usr"),       0o755)?;
-    mkdirat(Some(scratch), Path::new("usr/bin"),   0o755)?;
-    mkdirat(Some(scratch), Path::new("build"),     0o755)?;
+    mkdirat(Some(scratch), cstr!(b"bin"),       0o755)?;
+    mkdirat(Some(scratch), cstr!(b"dev"),       0o755)?;
+    mkdirat(Some(scratch), cstr!(b"nix"),       0o755)?;
+    mkdirat(Some(scratch), cstr!(b"nix/store"), 0o755)?;
+    mkdirat(Some(scratch), cstr!(b"proc"),      0o555)?;  // (sic)
+    mkdirat(Some(scratch), cstr!(b"root"),      0o755)?;
+    mkdirat(Some(scratch), cstr!(b"usr"),       0o755)?;
+    mkdirat(Some(scratch), cstr!(b"usr/bin"),   0o755)?;
+    mkdirat(Some(scratch), cstr!(b"build"),     0o755)?;
 
     // Create symbolic links for the standard streams.
-    symlinkat(cstr!("/proc/self/fd/0"), Some(scratch), Path::new("dev/stdin"))?;
-    symlinkat(cstr!("/proc/self/fd/1"), Some(scratch), Path::new("dev/stdout"))?;
-    symlinkat(cstr!("/proc/self/fd/2"), Some(scratch), Path::new("dev/stderr"))?;
+    symlinkat(cstr!(b"/proc/self/fd/0"), Some(scratch), cstr!(b"dev/stdin"))?;
+    symlinkat(cstr!(b"/proc/self/fd/1"), Some(scratch), cstr!(b"dev/stdout"))?;
+    symlinkat(cstr!(b"/proc/self/fd/2"), Some(scratch), cstr!(b"dev/stderr"))?;
 
     // Prepare writes to /proc/self/gid_map and /proc/self/uid_map.
     // These files map users and groups inside the container
@@ -91,7 +91,7 @@ fn gist(
     // For some unknown reason, fchdir(scratch) keeps mount from working.
     // But with chdir(scratch_path) it works, so we do that instead.
     let scratch_magic = format!("/proc/self/fd/{}", scratch.as_raw_fd());
-    let scratch_path: CString = readlink(Path::new(&scratch_magic))?;
+    let scratch_path: CString = readlink(scratch_magic)?;
 
     // systemd mounts / as MS_SHARED, but MS_PRIVATE is more isolated.
     let root_flags = libc::MS_PRIVATE | libc::MS_REC;
@@ -111,7 +111,7 @@ fn gist(
         let absolute = format!("/dev/{}", path);
         let relative = format!("dev/{}", path);
         let flags = libc::MS_BIND | libc::MS_REC;
-        mknodat(Some(scratch), Path::new(&relative), 0, 0)?;
+        mknodat(Some(scratch), &relative, 0, 0)?;
         PreparedMount::new(&mut mounts, &absolute, &relative, "", flags, "");
     }
 
@@ -427,10 +427,10 @@ mod tests
     fn call_gist(program: &Path, arguments: &[&str], timeout: Duration)
         -> (Result<(), Error>, File)
     {
-        let path = mkdtemp(Path::new("/tmp/snowflake-test-XXXXXX")).unwrap();
+        let path = mkdtemp(cstr!(b"/tmp/snowflake-test-XXXXXX")).unwrap();
         scope_exit! { let _ = remove_dir_all(&path); }
 
-        let log = open(Path::new("."), O_RDWR | O_TMPFILE, 0o644).unwrap();
+        let log = open(cstr!(b"."), O_RDWR | O_TMPFILE, 0o644).unwrap();
         let scratch = open(&path, O_DIRECTORY | O_PATH, 0).unwrap();
 
         let arguments: Vec<CString> =

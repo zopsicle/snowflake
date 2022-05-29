@@ -106,7 +106,6 @@ impl State
         path: &str,
     ) -> io::Result<BorrowedFd<'a>>
     {
-        let path = Path::new(path);
         let owned_fd = cell.get_or_try_init(|| {
             let dirfd = Some(self.state_dir.as_fd());
             mkdirat(dirfd, path, 0o755)
@@ -131,7 +130,7 @@ mod tests
 {
     use {
         super::*,
-        os_ext::{O_CREAT, O_WRONLY, mkdtemp, readlink},
+        os_ext::{O_CREAT, O_WRONLY, cstr, mkdtemp, readlink},
         scope_exit::scope_exit,
         std::{fs::remove_dir_all, os::unix::{ffi::OsStrExt, io::AsRawFd}},
     };
@@ -140,7 +139,7 @@ mod tests
     fn new_scratch_dir()
     {
         // Create state directory.
-        let path = mkdtemp(Path::new("/tmp/snowflake-test-XXXXXX")).unwrap();
+        let path = mkdtemp(cstr!(b"/tmp/snowflake-test-XXXXXX")).unwrap();
         scope_exit! { let _ = remove_dir_all(&path); }
 
         // Create two scratch directories.
@@ -151,8 +150,8 @@ mod tests
         // Test paths to the scratch directories.
         let magic_link_0 = format!("/proc/self/fd/{}", scratch_dir_0.as_raw_fd());
         let magic_link_1 = format!("/proc/self/fd/{}", scratch_dir_1.as_raw_fd());
-        let scratch_dir_path_0 = readlink(Path::new(&magic_link_0)).unwrap();
-        let scratch_dir_path_1 = readlink(Path::new(&magic_link_1)).unwrap();
+        let scratch_dir_path_0 = readlink(magic_link_0).unwrap();
+        let scratch_dir_path_1 = readlink(magic_link_1).unwrap();
         assert_eq!(scratch_dir_path_0.as_bytes(),
                    path.join("scratches/0").as_os_str().as_bytes());
         assert_eq!(scratch_dir_path_1.as_bytes(),
