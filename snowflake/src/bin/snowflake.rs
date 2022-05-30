@@ -41,8 +41,14 @@ fn main()
                 asx1,
                 Action::RunCommand{
                     inputs: [
-                        (Arc::from(Basename::new("a").unwrap()), osx00),
-                        (Arc::from(Basename::new("b").unwrap()), osx01.clone()),
+                        (
+                            Arc::from(Basename::new("a").unwrap()),
+                            Input::Dependency(osx00),
+                        ),
+                        (
+                            Arc::from(Basename::new("b").unwrap()),
+                            Input::Dependency(osx01.clone()),
+                        ),
                     ].into_iter().collect(),
                     outputs: vec![Arc::from(Basename::new("o").unwrap())],
                     program: "/run/current-system/sw/bin/sleep".into(),
@@ -56,8 +62,14 @@ fn main()
                 asy0,
                 Action::RunCommand{
                     inputs: [
-                        (Arc::from(Basename::new("c").unwrap()), osx01),
-                        (Arc::from(Basename::new("d").unwrap()), osx10.clone()),
+                        (
+                            Arc::from(Basename::new("c").unwrap()),
+                            Input::Dependency(osx01),
+                        ),
+                        (
+                            Arc::from(Basename::new("d").unwrap()),
+                            Input::Dependency(osx10.clone()),
+                        ),
                     ].into_iter().collect(),
                     outputs: vec![Arc::from(Basename::new("o").unwrap())],
                     program: "/run/current-system/sw/bin/sleep".into(),
@@ -71,7 +83,10 @@ fn main()
                 asy1,
                 Action::RunCommand{
                     inputs: [
-                        (Arc::from(Basename::new("e").unwrap()), osx10.clone()),
+                        (
+                            Arc::from(Basename::new("e").unwrap()),
+                            Input::Dependency(osx10.clone()),
+                        ),
                     ].into_iter().collect(),
                     outputs: vec![Arc::from(Basename::new("o").unwrap())],
                     program: "/run/current-system/sw/bin/sleep".into(),
@@ -85,7 +100,10 @@ fn main()
                 asz0,
                 Action::RunCommand{
                     inputs: [
-                        (Arc::from(Basename::new("f").unwrap()), osx10.clone()),
+                        (
+                            Arc::from(Basename::new("f").unwrap()),
+                            Input::Dependency(osx10.clone()),
+                        ),
                     ].into_iter().collect(),
                     outputs: [].into_iter().collect(),
                     program: "/run/current-system/sw/bin/sleep".into(),

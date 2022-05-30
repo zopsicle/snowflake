@@ -1,6 +1,6 @@
 use {
     crate::basename::Basename,
-    super::Blake3,
+    super::{Blake3, Hash},
     std::{
         collections::BTreeMap,
         ffi::{CStr, OsStr},
@@ -38,6 +38,14 @@ impl Blake3
     pub fn put_usize(&mut self, value: usize) -> &mut Self
     {
         self.put_u64(value as u64)
+    }
+
+    pub fn put_hash(&mut self, hash: Hash) -> &mut Self
+    {
+        for byte in hash.0 {
+            self.put_u8(byte);
+        }
+        self
     }
 
     pub fn put_bytes(&mut self, value: &[u8]) -> &mut Self

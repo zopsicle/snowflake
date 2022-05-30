@@ -7,7 +7,8 @@ use {
 /// Collection of actions and artifacts.
 pub struct ActionGraph
 {
-    /// Actions to perform, in order implied by [inputs][`Action::inputs`].
+    /// Actions to perform, in order implied
+    /// by [dependencies][`Action::dependencies`].
     pub actions: HashMap<ActionLabel, Action>,
 
     /// Outputs made available to the user after building.
@@ -44,7 +45,7 @@ impl ActionGraph
                 }
                 let action = graph.get(action)
                     .expect("Action graph is missing action");
-                mark_recursively(graph, live, action.inputs());
+                mark_recursively(graph, live, action.dependencies());
             }
         }
         mark_recursively(&self.actions, &mut live, self.artifacts.iter());
@@ -70,10 +71,10 @@ impl fmt::Display for ActionGraph
         for (label, action) in &self.actions {
             let color = if action.is_lint() { COLOR_LINT } else { COLOR_ACTION };
             write!(f, "\"{label}\" [color = \"{color}\"];")?;
-            for input in action.inputs() {
+            for dependency in action.dependencies() {
                 write!(f,
                     "\"{}\" -> \"{}\" [label = {}];",
-                    input.action, label, input.output)?;
+                    dependency.action, label, dependency.output)?;
             }
         }
 
