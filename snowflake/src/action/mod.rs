@@ -135,13 +135,11 @@ impl Action
     /// [`perform`][`perform::perform`], and other places.
     pub fn inputs(&self) -> impl Iterator<Item=&Input>
     {
+        static EMPTY: BTreeMap<Arc<Basename>, Input> = BTreeMap::new();
         match self {
-            Self::CreateSymbolicLink{..} =>
-                None.into_iter().flatten(),
-            Self::WriteRegularFile{..} =>
-                None.into_iter().flatten(),
-            Self::RunCommand{inputs, ..} =>
-                Some(inputs.values()).into_iter().flatten(),
+            Self::CreateSymbolicLink{..} => EMPTY.values(),
+            Self::WriteRegularFile{..}   => EMPTY.values(),
+            Self::RunCommand{inputs, ..} => inputs.values()
         }
     }
 
