@@ -106,6 +106,8 @@ impl Action
                     let _ = v;
                     h
                 });
+                assert!(input_hashes.next().is_none(),
+                        "Too many inputs when computing action hash");
 
                 h.put_slice(outputs, |h, o| h.put_basename(o));
                 h.put_path(program);
