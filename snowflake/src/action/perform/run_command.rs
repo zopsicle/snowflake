@@ -41,7 +41,7 @@ pub fn perform_run_command(
 ) -> Result<Summary, Error>
 {
     // Perform the gist of the performing.
-    gist(perform.log, perform.scratch, program,
+    gist(perform.build_log, perform.scratch, program,
          arguments, environment, timeout)?;
 
     // Collect all the output paths.
@@ -52,7 +52,7 @@ pub fn perform_run_command(
 }
 
 fn gist(
-    log: BorrowedFd,
+    build_log: BorrowedFd,
     scratch: BorrowedFd,
     program: &Path,
     arguments: &[CString],
@@ -216,11 +216,11 @@ fn gist(
 
         // Configure the standard streams stdin, stdout, and stderr.
         // dup2 turns off CLOEXEC which is exactly what we need.
-        let log = log.as_raw_fd();
+        let build_log = build_log.as_raw_fd();
         unsafe {
             enforce("close stdin", libc::close(0) != -1);
-            enforce("dup2 stdout", libc::dup2(log, 1) != -1);
-            enforce("dup2 stderr", libc::dup2(log, 2) != -1);
+            enforce("dup2 stdout", libc::dup2(build_log, 1) != -1);
+            enforce("dup2 stderr", libc::dup2(build_log, 2) != -1);
         }
 
         // Change the working directory.
@@ -421,13 +421,13 @@ mod tests
         },
     };
 
-    /// Call the gist function and return the result and the log file.
+    /// Call the gist function and return the result and the build log file.
     fn call_gist(program: &Path, arguments: &[&str], timeout: Duration)
         -> (Result<(), Error>, File)
     {
         let path = mkdtemp(cstr!(b"/tmp/snowflake-test-XXXXXX")).unwrap();
 
-        let log = open(cstr!(b"."), O_RDWR | O_TMPFILE, 0o644).unwrap();
+        let build_log = open(cstr!(b"."), O_RDWR | O_TMPFILE, 0o644).unwrap();
         let scratch = open(&path, O_DIRECTORY | O_PATH, 0).unwrap();
 
         let arguments: Vec<CString> =
@@ -436,7 +436,7 @@ mod tests
             .collect();
 
         let result = gist(
-            log.as_fd(),
+            build_log.as_fd(),
             scratch.as_fd(),
             program,
             &arguments,
@@ -444,24 +444,24 @@ mod tests
             timeout,
         );
 
-        let mut log = File::from(log);
-        log.rewind().unwrap();
+        let mut build_log = File::from(build_log);
+        build_log.rewind().unwrap();
 
-        (result, log)
+        (result, build_log)
     }
 
     #[test]
     fn pid_1()
     {
         let bash = var_os("SNOWFLAKE_BASH").unwrap();
-        let (result, mut log) = call_gist(
+        let (result, mut build_log) = call_gist(
             &Path::new(&bash).join("bin/bash"),
             &["sh", "-c", "echo $$"],
             Duration::from_millis(50),
         );
         assert_matches!(result, Ok(()));
         let mut buf = Vec::new();
-        log.read_to_end(&mut buf).unwrap();
+        build_log.read_to_end(&mut buf).unwrap();
         assert_eq!(buf, b"1\n");
     }
 

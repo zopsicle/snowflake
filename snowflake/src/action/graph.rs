@@ -4,14 +4,17 @@ use {
     std::{collections::{HashMap, HashSet}, fmt},
 };
 
-/// Collection of actions and artifacts.
+/// Action graph encoded as an adjacency list.
+///
+/// The vertices of the graph are stored indexed by action label.
+/// The edges of the graph are encoded by the dependency sets of the actions.
 pub struct ActionGraph
 {
-    /// Actions to perform, in order implied
+    /// Actions to perform, in the order implied
     /// by [dependencies][`Action::dependencies`].
     pub actions: HashMap<ActionLabel, Action>,
 
-    /// Outputs made available to the user after building.
+    /// Artifacts of the requested build.
     pub artifacts: HashSet<ActionOutputLabel>,
 }
 
@@ -28,7 +31,7 @@ impl ActionGraph
         // Lint actions are always considered live.
         live.extend(
             self.actions.iter()
-            .filter(|a| a.1.is_lint())
+            .filter(|a| a.1.is_lint_action())
             .map(|a| a.0.clone())
         );
 
@@ -69,7 +72,8 @@ impl fmt::Display for ActionGraph
         write!(f, "edge [fontname = {FONTNAME}];")?;
 
         for (label, action) in &self.actions {
-            let color = if action.is_lint() { COLOR_LINT } else { COLOR_ACTION };
+            let color = if action.is_lint_action() { COLOR_LINT }
+                        else { COLOR_ACTION };
             write!(f, "\"{label}\" [color = \"{color}\"];")?;
             for dependency in action.dependencies() {
                 write!(f,

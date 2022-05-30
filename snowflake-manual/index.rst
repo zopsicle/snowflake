@@ -6,3 +6,4 @@ Snowflake manual
 
    design-principles
    development-notes/index
+   glossary

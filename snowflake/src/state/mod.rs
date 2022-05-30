@@ -22,17 +22,12 @@ const CACHED_ACTIONS_DIR: &str = "cached_actions";
 const CACHED_OUTPUTS_DIR: &str = "cached_outputs";
 
 /// Handle to a state directory.
-///
-/// A state directory, often at the path `.snowflake`,
-/// contains on-disk state pertaining to a project.
-/// Most state persists across build system invocations.
 pub struct State
 {
     /// Handle to the state directory.
     state_dir: OwnedFd,
 
     // Handles to the different components of the state directory.
-    // See their eponymous methods to learn about their purposes.
     scratches_dir:      SyncOnceCell<OwnedFd>,
     cached_actions_dir: SyncOnceCell<OwnedFd>,
     cached_outputs_dir: SyncOnceCell<OwnedFd>,
@@ -64,10 +59,6 @@ impl State
     }
 
     /// Handle to the scratches directory.
-    ///
-    /// The scratches directory contains scratch directories.
-    /// Scratch directories are temporary directories used during builds.
-    /// Scratch directories do not survive restarts of the build system.
     fn scratches_dir(&self) -> io::Result<BorrowedFd>
     {
         self.ensure_open_dir_once(&self.scratches_dir, SCRATCHES_DIR)
@@ -85,19 +76,14 @@ impl State
         openat(Some(scratches_dir), &path, O_DIRECTORY | O_PATH, 0)
     }
 
-    /// Handle to the cached actions directory.
-    ///
-    /// The cached actions directory maps each action to its outputs.
+    /// Handle to the action cache.
     fn cached_actions_dir(&self) -> io::Result<BorrowedFd>
     {
         #![allow(unused)]  // TODO: Use this somewhere.
         self.ensure_open_dir_once(&self.cached_actions_dir, CACHED_ACTIONS_DIR)
     }
 
-    /// Handle to the cached outputs directory.
-    ///
-    /// The cached outputs directory stores each output
-    /// using a content-addressable naming scheme.
+    /// Handle to the output cache.
     fn cached_outputs_dir(&self) -> io::Result<BorrowedFd>
     {
         self.ensure_open_dir_once(&self.cached_outputs_dir, CACHED_OUTPUTS_DIR)

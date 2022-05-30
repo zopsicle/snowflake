@@ -1,4 +1,7 @@
 //! Snowflake build system.
+//!
+//! If the documentation mentions any terms unfamiliar to you,
+//! be sure to check out the [glossary](/snowflake-manual/glossary.html).
 
 #![doc(html_logo_url = "/snowflake-manual/_static/logo.svg")]
 #![feature(assert_matches)]

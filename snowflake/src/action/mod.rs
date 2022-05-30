@@ -18,14 +18,7 @@ pub mod perform;
 
 mod graph;
 
-/// How to produce outputs given some configuration and dependencies.
-///
-/// An action consists of configuration and action graph structure.
-/// Configuration is static information; it does not change
-/// based on the output of the action's dependencies.
-/// Output labels form the edges of the [action graph][`ActionGraph`].
-/// The different types of actions and their parameters
-/// are documented in detail in the manual.
+/// Configuration and dependencies of an action.
 #[allow(missing_docs)]
 pub enum Action
 {
@@ -52,12 +45,6 @@ pub enum Action
 }
 
 /// Input to an action.
-///
-/// An input is either a dependency or a source file.
-/// Dependencies are outputs produced by other actions,
-/// which must be built before the dependent action can be built.
-/// Source files are ignored when constructing the action graph;
-/// they are considered part of the configuration of an action.
 pub enum Input
 {
     /// Dependency.
@@ -67,6 +54,9 @@ pub enum Input
     ///
     /// The path is interpreted to be relative to the source root.
     /// The hash must already be correct! It will not be verified.
+    /// Including the hash in the input keeps [`hash_configuration`] pure.
+    ///
+    /// [`hash_configuration`]: `Action::hash_configuration`
     Source(PathBuf, Hash),
 }
 
@@ -134,7 +124,11 @@ impl Action
         }
     }
 
-    /// The outputs of other actions that are dependencies of this action.
+    /// The dependencies of the action.
+    ///
+    /// The order in which the dependencies are yold
+    /// corresponds to the order in which they are expected
+    /// to be passed to [`perform`][`perform::perform`].
     pub fn dependencies(&self) -> impl Iterator<Item=&ActionOutputLabel>
     {
         match self {
@@ -164,11 +158,8 @@ impl Action
         }
     }
 
-    /// Whether this action is a lint.
-    ///
-    /// Lint actions are actions that produce no outputs.
-    /// They are invoked only for the warnings they emit.
-    pub fn is_lint(&self) -> bool
+    /// Whether this action is a lint action.
+    pub fn is_lint_action(&self) -> bool
     {
         self.outputs() == 0
     }
