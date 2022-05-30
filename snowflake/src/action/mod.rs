@@ -53,17 +53,25 @@ pub enum Input
     /// Source file.
     ///
     /// The path is interpreted to be relative to the source root.
-    /// The hash must already be correct! It will not be verified.
-    /// Including the hash in the input keeps [`hash_configuration`] pure.
-    ///
-    /// [`hash_configuration`]: `Action::hash_configuration`
-    Source(PathBuf, Hash),
+    Source(PathBuf),
 }
 
 impl Action
 {
-    /// Hash of the configuration of the action.
-    pub fn hash_configuration(&self, h: &mut Blake3)
+    /// Compute the action hash of the action.
+    ///
+    /// The hashes of the inputs must be given in
+    /// the same order as [`inputs`][`Self::inputs`].
+    pub fn action_hash<I>(&self, input_hashes: I) -> Hash
+        where I: IntoIterator<Item=Hash>
+    {
+        let mut h = Blake3::new();
+        self.action_hash_impl(&mut h, &mut input_hashes.into_iter());
+        h.finalize()
+    }
+
+    fn action_hash_impl(&self, h: &mut Blake3,
+                        input_hashes: &mut dyn Iterator<Item=Hash>)
     {
         // NOTE: See the manual chapter on avoiding hash collisions.
 
@@ -91,18 +99,16 @@ impl Action
                              environment, timeout, warnings} => {
                 h.put_u8(ACTION_TYPE_RUN_COMMAND);
 
-                // The action graph is irrelevant to the configuration hash.
-                // So we do not include which output a dependency refers to.
-                // Sources are part of the configuration, so we include those.
                 h.put_btree_map(inputs, |h, k, v| {
                     h.put_basename(k);
+                    h.put_hash(input_hashes.next()
+                        .expect("Not enough inputs for computing action hash"));
                     match v {
-                        Input::Dependency(..) =>
-                            h.put_u8(INPUT_TYPE_DEPENDENCY),
-                        Input::Source(_, hash) => {
-                            h.put_u8(INPUT_TYPE_SOURCE);
-                            h.put_hash(*hash)
-                        },
+                        // The output label or source file path
+                        // cannot be observed by the command,
+                        // so they are irrelevant to the hash.
+                        Input::Dependency(..) => h.put_u8(INPUT_TYPE_DEPENDENCY),
+                        Input::Source(..)     => h.put_u8(INPUT_TYPE_SOURCE),
                     }
                 });
 
@@ -124,28 +130,33 @@ impl Action
         }
     }
 
-    /// The dependencies of the action.
+    /// The inputs of the action.
     ///
-    /// The order in which the dependencies are yold
+    /// The order in which the inputs are yold by the iterator
     /// corresponds to the order in which they are expected
-    /// to be passed to [`perform`][`perform::perform`].
-    pub fn dependencies(&self) -> impl Iterator<Item=&ActionOutputLabel>
+    /// to be passed to [`action_hash`][`Self::action_hash`],
+    /// [`perform`][`perform::perform`], and other places.
+    pub fn inputs(&self) -> impl Iterator<Item=&Input>
     {
         match self {
             Self::CreateSymbolicLink{..} =>
                 None.into_iter().flatten(),
             Self::WriteRegularFile{..} =>
                 None.into_iter().flatten(),
-            Self::RunCommand{inputs, ..} => {
-                let iter =
-                    inputs.values()
-                    .filter_map(|i| match i {
-                        Input::Dependency(d) => Some(d),
-                        Input::Source(..) => None,
-                    });
-                Some(iter).into_iter().flatten()
-            },
+            Self::RunCommand{inputs, ..} =>
+                Some(inputs.values()).into_iter().flatten(),
         }
+    }
+
+    /// The dependencies of the action.
+    pub fn dependencies(&self) -> impl Iterator<Item=&ActionOutputLabel>
+    {
+        self.inputs().filter_map(|i| {
+            match i {
+                Input::Dependency(d) => Some(d),
+                Input::Source(..) => None,
+            }
+        })
     }
 
     /// The number of outputs of this action.
