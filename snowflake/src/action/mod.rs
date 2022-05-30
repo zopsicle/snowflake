@@ -79,9 +79,6 @@ impl Action
         const ACTION_TYPE_WRITE_REGULAR_FILE:   u8 = 1;
         const ACTION_TYPE_RUN_COMMAND:          u8 = 2;
 
-        const INPUT_TYPE_DEPENDENCY: u8 = 0;
-        const INPUT_TYPE_SOURCE:     u8 = 0;
-
         match self {
 
             Self::CreateSymbolicLink{target} => {
@@ -103,13 +100,11 @@ impl Action
                     h.put_basename(k);
                     h.put_hash(input_hashes.next()
                         .expect("Not enough inputs for computing action hash"));
-                    match v {
-                        // The output label or source file path
-                        // cannot be observed by the command,
-                        // so they are irrelevant to the hash.
-                        Input::Dependency(..) => h.put_u8(INPUT_TYPE_DEPENDENCY),
-                        Input::Source(..)     => h.put_u8(INPUT_TYPE_SOURCE),
-                    }
+                    // Whether it's a dependency or a source file
+                    // cannot be observabled by the action,
+                    // so no need to include that in the hash.
+                    let _ = v;
+                    h
                 });
 
                 h.put_slice(outputs, |h, o| h.put_basename(o));
