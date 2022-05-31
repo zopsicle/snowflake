@@ -1,29 +1,28 @@
 use {
     crate::basename::Basename,
-    super::{Error, Perform, Summary},
+    super::{super::{Action, Input}, Error, Perform, Summary},
     os_ext::{
-        cstr,
-        getgid,
-        getuid,
-        mkdirat,
-        mknodat,
-        pipe2,
-        readlink,
-        symlinkat,
+        AT_SYMLINK_NOFOLLOW,
+        S_IFDIR, S_IFLNK, S_IFMT, S_IFREG,
+        cstr, cstr::IntoCStr, cstr_cow,
+        fstatat, getgid, getuid, mkdirat, mknodat,
+        pipe2, readlink, readlinkat, symlinkat,
     },
     scope_exit::ScopeExit,
     std::{
-        ffi::{CStr, CString},
+        borrow::Cow,
+        collections::BTreeMap,
+        ffi::{CStr, CString, NulError, OsString},
         fs::File,
         io::{self, Read},
         mem::{forget, size_of_val, zeroed},
         os::unix::{
-            ffi::OsStrExt,
+            ffi::OsStringExt,
             io::{AsRawFd, BorrowedFd, FromRawFd, OwnedFd},
             process::ExitStatusExt,
         },
         panic::always_abort,
-        path::Path,
+        path::{Path, PathBuf},
         process::ExitStatus,
         ptr::{addr_of, addr_of_mut, null, null_mut},
         sync::Arc,
@@ -33,39 +32,82 @@ use {
 
 pub fn perform_run_command(
     perform: &Perform,
-    outputs: &[Arc<Basename>],
-    program: &Path,
-    arguments: &[CString],
-    environment: &[CString],
-    timeout: Duration,
+    action: &Action,
+    input_paths: &[PathBuf],
 ) -> Result<Summary, Error>
 {
-    // Perform the gist of the performing.
-    gist(perform.build_log, perform.scratch, program,
-         arguments, environment, timeout)?;
+    // Unpack the arguments into convenient variables.
+    let Perform{build_log, source_root, scratch} = perform;
+    let Action::RunCommand{inputs, outputs, program, arguments,
+                           environment, timeout, warnings} = action
+        else { panic!() };
 
-    // Collect all the output paths.
-    let build_dir = Path::new("build");
-    let outputs = outputs.iter().map(|b| build_dir.join(&**b)).collect();
-
-    Ok(Summary{outputs, warnings: false})
-}
-
-fn gist(
-    build_log: BorrowedFd,
-    scratch: BorrowedFd,
-    program: &Path,
-    arguments: &[CString],
-    environment: &[CString],
-    timeout: Duration,
-) -> Result<(), Error>
-{
-    // Prepared mounts, with targets relative to the scratch directory.
-    // This vec will be appended onto at various points in this function.
+    // Mounting must happen in the child process,
+    // so we collect all the mount calls in here.
+    // Targets are relative to scratch directory.
     let mut mounts = Vec::new();
 
-    // Set up directory hierarchy in scratch directory.
-    // The scratch directory will be chrooted into by the child.
+    // Perform the run command action.
+    let scratch_path = resolve_magic(*scratch)?;
+    populate_root_directory(*scratch)?;
+    populate_dev_directory(*scratch, &mut mounts)?;
+    install_blessed_programs(*scratch)?;
+    repair_root_mount(&mut mounts);
+    mount_proc(&mut mounts);
+    mount_nix_store(&mut mounts);
+    mount_inputs(*source_root, *scratch, inputs, input_paths, &mut mounts)?;
+    run_command(*build_log, &scratch_path, program,
+                arguments, environment, *timeout,
+                mounts)?;
+    let output_paths = output_paths(outputs);
+
+    // Summarize the result.
+    Ok(Summary{output_paths, warnings: false})
+}
+
+/// Arguments to mount.
+#[derive(Default)]
+struct Mount<'a>
+{
+    source: Cow<'a, CStr>,
+    target: Cow<'a, CStr>,
+    filesystemtype: Cow<'a, CStr>,
+    mountflags: libc::c_ulong,
+    data: Cow<'a, CStr>,
+}
+
+impl<'a> Mount<'a>
+{
+    /// Create a read-only bind mount.
+    ///
+    /// This is more involved than simply passing `MS_BIND | MS_RDONLY`.
+    /// See https://unix.stackexchange.com/a/492462 for more information.
+    pub fn rdonly_bind_mount(
+        source: impl IntoCStr<'a>,
+        target: impl Clone + IntoCStr<'a>,
+    ) -> Result<[Self; 2], NulError>
+    {
+        let common_flags = libc::MS_BIND | libc::MS_REC;
+        Ok([
+            Self{
+                source: source.into_cstr()?,
+                target: target.clone().into_cstr()?,
+                mountflags: common_flags,
+                ..Mount::default()
+            },
+            Self{
+                source: cstr_cow!(b"none"),
+                target: target.into_cstr()?,
+                mountflags: common_flags | libc::MS_RDONLY | libc::MS_REMOUNT,
+                ..Mount::default()
+            },
+        ])
+    }
+}
+
+/// Populate the container's `/` directory.
+fn populate_root_directory(scratch: BorrowedFd) -> Result<(), Error>
+{
     mkdirat(Some(scratch), cstr!(b"bin"),       0o755)?;
     mkdirat(Some(scratch), cstr!(b"dev"),       0o755)?;
     mkdirat(Some(scratch), cstr!(b"nix"),       0o755)?;
@@ -75,12 +117,189 @@ fn gist(
     mkdirat(Some(scratch), cstr!(b"usr"),       0o755)?;
     mkdirat(Some(scratch), cstr!(b"usr/bin"),   0o755)?;
     mkdirat(Some(scratch), cstr!(b"build"),     0o755)?;
+    Ok(())
+}
 
-    // Create symbolic links for the standard streams.
+/// Populate the container's `/dev` directory.
+fn populate_dev_directory(scratch: BorrowedFd, mounts: &mut Vec<Mount>)
+    -> Result<(), Error>
+{
+    // The standard streams are symbolic links, so they cannot be mounted.
     symlinkat(cstr!(b"/proc/self/fd/0"), Some(scratch), cstr!(b"dev/stdin"))?;
     symlinkat(cstr!(b"/proc/self/fd/1"), Some(scratch), cstr!(b"dev/stdout"))?;
     symlinkat(cstr!(b"/proc/self/fd/2"), Some(scratch), cstr!(b"dev/stderr"))?;
 
+    // Device files cannot be created directly; mknod fails with EPERM.
+    // Instead, we mknod a regular file for each device file,
+    // which we then use as a mount target for a bind mount.
+    let device_files = ["null", "zero", "full", "random", "urandom"];
+    for basename in device_files {
+        let source = Path::new("/dev").join(basename);
+        let target = Path::new("dev").join(basename);
+
+        mknodat(Some(scratch), &target, S_IFREG | 0o644, 0)?;
+
+        let mount = Mount{
+            source: source.into_cstr().unwrap(),
+            target: target.into_cstr().unwrap(),
+            mountflags: libc::MS_BIND | libc::MS_REC,
+            ..Mount::default()
+        };
+        mounts.push(mount);
+    }
+
+    Ok(())
+}
+
+/// Point the container's symbolic links `/bin/sh` and `/usr/bin/env`
+/// to their respective executables in the Nix store.
+///
+/// These two programs are commonly used in shebangs,
+/// so having them not be where expected is very annoying.
+fn install_blessed_programs(scratch: BorrowedFd) -> Result<(), Error>
+{
+    let sh  = concat!(env!("SNOWFLAKE_BASH"), "/bin/bash").into_cstr()?;
+    let env = concat!(env!("SNOWFLAKE_COREUTILS"), "/bin/env").into_cstr()?;
+    symlinkat(&sh,  Some(scratch), cstr!(b"bin/sh"))?;
+    symlinkat(&env, Some(scratch), cstr!(b"usr/bin/env"))?;
+    Ok(())
+}
+
+/// Prevent mount events from propagating out of the container.
+///
+/// `/` is usually mounted with `MS_SHARED`, but we want `MS_PRIVATE`.
+/// Otherwise, mount events inside the container could propagate out.
+fn repair_root_mount(mounts: &mut Vec<Mount>)
+{
+    let mount = Mount{
+        source: cstr_cow!(b"none"),
+        target: cstr_cow!(b"/"),
+        mountflags: libc::MS_PRIVATE | libc::MS_REC,
+        ..Mount::default()
+    };
+    mounts.push(mount);
+}
+
+// Mount the proc file system at the container's path `/proc`.
+fn mount_proc(mounts: &mut Vec<Mount>)
+{
+    let mount = Mount{
+        source: cstr_cow!(b"proc"),
+        target: cstr_cow!(b"proc"),
+        filesystemtype: cstr_cow!(b"proc"),
+        mountflags: libc::MS_NODEV | libc::MS_NOEXEC | libc::MS_NOSUID,
+        ..Mount::default()
+    };
+    mounts.push(mount);
+}
+
+/// Mount the Nix store at the container's path `/nix/store`.
+fn mount_nix_store(mounts: &mut Vec<Mount>)
+{
+    let mountz = Mount::rdonly_bind_mount("/nix/store", "nix/store").unwrap();
+    mounts.extend(mountz);
+}
+
+/// Mount every input in the container's `/build` directory.
+fn mount_inputs(
+    source_root: BorrowedFd,
+    scratch: BorrowedFd,
+    inputs: &BTreeMap<Arc<Basename>, Input>,
+    input_paths: &[PathBuf],
+    mounts: &mut Vec<Mount>,
+) -> Result<(), Error>
+{
+    debug_assert_eq!(input_paths.len(), inputs.len());
+
+    let source_root_path =
+        resolve_magic(source_root)
+        .map(CString::into_bytes)
+        .map(OsString::from_vec)
+        .map(PathBuf::from)?;
+
+    for (input_basename, input_path) in inputs.keys().zip(input_paths) {
+        mount_input(&source_root_path, scratch, input_basename,
+                    input_path, mounts)?;
+    }
+
+    Ok(())
+}
+
+/// Mount an input in the container's `/build` directory.
+fn mount_input(
+    source_root_path: &Path,
+    scratch: BorrowedFd,
+    input_basename: &Basename,
+    input_path: &Path,
+    mounts: &mut Vec<Mount>,
+) -> Result<(), Error>
+{
+    // Make the input path absolute so it can be mounted.
+    let input_path = source_root_path.join(input_path);
+
+    // Make the target relative to the /build directory.
+    let target = Path::new("build").join(input_basename);
+
+    // How to mount the input depends on what type of file it is.
+    let statbuf = fstatat(None, &input_path, AT_SYMLINK_NOFOLLOW)?;
+    match statbuf.st_mode & S_IFMT {
+        S_IFREG => {
+            // If it's a regular file, the target must be a regular file.
+            mknodat(Some(scratch), &target, S_IFREG | 0o644, 0)?;
+            mounts.extend(Mount::rdonly_bind_mount(input_path, target)?);
+        },
+        S_IFDIR => {
+            // If it's a directory, the target must be a directory.
+            mkdirat(Some(scratch), &target, 0o755)?;
+            mounts.extend(Mount::rdonly_bind_mount(input_path, target)?);
+        },
+        S_IFLNK => {
+            // If it's a symbolic link, we're fucked as they can't be mounted.
+            // Copy the symbolic link instead (should be fast; they're small).
+            let symlink_target = readlinkat(None, input_path)?;
+            symlinkat(&symlink_target, Some(scratch), target)?;
+        },
+        _ =>
+            return Err(Error::InvalidInputFileType),
+    }
+
+    Ok(())
+}
+
+/// Compute the scratch-relative path at which each output is created.
+fn output_paths(outputs: &[Arc<Basename>]) -> Vec<PathBuf>
+{
+    let build_dir = Path::new("build");
+    outputs.iter()
+        .map(|b| build_dir.join(&**b))
+        .collect()
+}
+
+/// Obtain the path to the file referred to by a file descriptor.
+///
+/// Some system calls do not work well with file descriptors:
+///
+///  1. There is no `mountat` system call, necessitating the use of `mount`.
+///  2. `fchdir` doesn't work with mount namespaces for whichever reason.
+fn resolve_magic(fd: BorrowedFd) -> Result<CString, Error>
+{
+    let magic = format!("/proc/self/fd/{}", fd.as_raw_fd());
+    readlink(magic).map_err(Error::from)
+}
+
+/// Run the command in the already set up container.
+fn run_command(
+    build_log: BorrowedFd,
+    scratch_path: &CStr,
+    program: &Path,
+    arguments: &[CString],
+    environment: &[CString],
+    timeout: Duration,
+    // By value, to prevent accidentally adding
+    // mounts *after* running the command. :)
+    mounts: Vec<Mount>,
+) -> Result<(), Error>
+{
     // Prepare writes to /proc/self/gid_map and /proc/self/uid_map.
     // These files map users and groups inside the container
     // to users and groups outside the container.
@@ -88,35 +307,8 @@ fn gist(
     let uid_map = format!("0 {} 1\n", getuid());
     let gid_map = format!("0 {} 1\n", getgid());
 
-    // For some unknown reason, fchdir(scratch) keeps mount from working.
-    // But with chdir(scratch_path) it works, so we do that instead.
-    let scratch_magic = format!("/proc/self/fd/{}", scratch.as_raw_fd());
-    let scratch_path: CString = readlink(scratch_magic)?;
-
-    // systemd mounts / as MS_SHARED, but MS_PRIVATE is more isolated.
-    let root_flags = libc::MS_PRIVATE | libc::MS_REC;
-    PreparedMount::new(&mut mounts, "none", "/", "", root_flags, "");
-
-    // Mount the /proc file system which many programs don't work without.
-    let proc_flags = libc::MS_NODEV | libc::MS_NOEXEC | libc::MS_NOSUID;
-    PreparedMount::new(&mut mounts, "proc", "proc", "proc", proc_flags, "");
-
-    // Mount the Nix store.
-    PreparedMount::new_rdonly_bind(&mut mounts, "/nix/store", "nix/store");
-
-    // Mount the device files onto fresh regular files.
-    // We need to mount them, because creating device files directly
-    // fails with EPERM, even when mknod is called inside the container.
-    for path in ["null", "zero", "full", "random", "urandom"] {
-        let absolute = format!("/dev/{}", path);
-        let relative = format!("dev/{}", path);
-        let flags = libc::MS_BIND | libc::MS_REC;
-        mknodat(Some(scratch), &relative, 0, 0)?;
-        PreparedMount::new(&mut mounts, &absolute, &relative, "", flags, "");
-    }
-
     // Prepare arguments to execve.
-    let program = CString::new(program.as_os_str().as_bytes())?;
+    let program = program.into_cstr()?;
     let (execve_argv, _execve_argv) = prepare_argv_envp(arguments);
     let (execve_envp, _execve_envp) = prepare_argv_envp(environment);
 
@@ -200,7 +392,7 @@ fn gist(
             }
         };
 
-        // Write the /proc/self/* files prepared above.
+        // Write the /proc/self/\* files prepared above.
         unsafe {
             let write_file = |pathname: &'static [u8], data: &[u8]| {
                 let fd = libc::open(pathname.as_ptr().cast(), libc::O_WRONLY, 0);
@@ -304,9 +496,6 @@ fn gist(
     };
 
     // Wait for the child to terminate or the timeout to occur.
-    // We don't handle the case where ppoll fails with EINTR,
-    // because we'd need to adjust the timeout on retry,
-    // which is a hassle I can't be bothered with.
     let ppoll = unsafe { libc::ppoll(&mut pollfd, 1, &timeout, null()) };
     if ppoll == -1 {
         return Err(io::Error::last_os_error().into());
@@ -347,45 +536,6 @@ struct clone_args
     cgroup:       u64,
 }
 
-/// Prepared arguments to mount.
-struct PreparedMount
-{
-    source:         CString,
-    target:         CString,
-    filesystemtype: CString,
-    mountflags:     libc::c_ulong,
-    data:           CString,
-}
-
-impl PreparedMount
-{
-    /// Create a mount.
-    fn new(into: &mut Vec<Self>, source: &str, target: &str,
-           filesystemtype: &str, mountflags: libc::c_ulong, data: &str)
-    {
-        let this = Self{
-            source:         CString::new(source).unwrap(),
-            target:         CString::new(target).unwrap(),
-            filesystemtype: CString::new(filesystemtype).unwrap(),
-            mountflags:     mountflags,
-            data:           CString::new(data).unwrap(),
-        };
-        into.push(this);
-    }
-
-    /// Create a read-only bind mount.
-    ///
-    /// This is more involved than simply passing `MS_BIND | MS_RDONLY`.
-    /// See https://unix.stackexchange.com/a/492462 for more information.
-    fn new_rdonly_bind(into: &mut Vec<Self>, source: &str, target: &str)
-    {
-        let flags_1 = libc::MS_BIND | libc::MS_REC;
-        let flags_2 = flags_1 | libc::MS_RDONLY | libc::MS_REMOUNT;
-        Self::new(into, source, target, "", flags_1, "");
-        Self::new(into, "none", target, "", flags_2, "");
-    }
-}
-
 /// Prepare the argv or envp arguments to `execve`.
 ///
 /// `execve` expects these to be arrays of nul-terminated strings,
@@ -413,36 +563,28 @@ mod tests
     use {
         super::*,
         os_ext::{O_DIRECTORY, O_PATH, O_RDWR, O_TMPFILE, mkdtemp, open},
-        std::{
-            assert_matches::assert_matches,
-            env::var_os,
-            io::Seek,
-            os::unix::io::AsFd,
-        },
+        std::{assert_matches::assert_matches, io::Seek, os::unix::io::AsFd},
     };
 
-    /// Call the gist function and return the result and the build log file.
-    fn call_gist(program: &Path, arguments: &[&str], timeout: Duration)
-        -> (Result<(), Error>, File)
+    /// Call the perform_run_command function and
+    /// return the result and the build log file.
+    fn call_perform_run_command(
+        source_root: BorrowedFd,
+        action: &Action,
+        input_paths: &[PathBuf],
+    ) -> (Result<Summary, Error>, File)
     {
-        let path = mkdtemp(cstr!(b"/tmp/snowflake-test-XXXXXX")).unwrap();
-
+        let path      = mkdtemp(cstr!(b"/tmp/snowflake-test-XXXXXX")).unwrap();
         let build_log = open(cstr!(b"."), O_RDWR | O_TMPFILE, 0o644).unwrap();
-        let scratch = open(&path, O_DIRECTORY | O_PATH, 0).unwrap();
+        let scratch   = open(&path, O_DIRECTORY | O_PATH, 0).unwrap();
 
-        let arguments: Vec<CString> =
-            arguments.iter()
-            .map(|&s| CString::new(s).unwrap())
-            .collect();
+        let perform = Perform{
+            build_log: build_log.as_fd(),
+            source_root,
+            scratch: scratch.as_fd(),
+        };
 
-        let result = gist(
-            build_log.as_fd(),
-            scratch.as_fd(),
-            program,
-            &arguments,
-            &[],
-            timeout,
-        );
+        let result = perform_run_command(&perform, action, input_paths);
 
         let mut build_log = File::from(build_log);
         build_log.rewind().unwrap();
@@ -451,15 +593,84 @@ mod tests
     }
 
     #[test]
+    fn inputs()
+    {
+        let coreutils = env!("SNOWFLAKE_COREUTILS");
+
+        let inputs: BTreeMap<_, _> =
+            ["regular.txt", "directory", "symlink.lnk", "broken.lnk"]
+            .into_iter()
+            .map(|i| {
+                // Only the keys of the inputs map are used.
+                let dummy = Input::StaticFile(PathBuf::new());
+                (Arc::<Basename>::from(Basename::new(i).unwrap()), dummy)
+            })
+            .collect();
+
+        let source_root =
+            open("testdata/inputs", O_DIRECTORY | O_PATH, 0)
+                .unwrap();
+
+        let input_paths: Vec<PathBuf> =
+            inputs.keys()
+            .map(|i| i.as_path().into())
+            .collect();
+
+        let action = &Action::RunCommand{
+            inputs,
+            outputs: vec![],
+            program: "/bin/sh".into(),
+            arguments: vec![
+                cstr!(b"sh").into(),
+                cstr!(b"-c").into(),
+                cstr!(br#"
+                    cat regular.txt
+                    ls directory
+                    readlink symlink.lnk
+                    readlink broken.lnk
+                "#).into(),
+            ],
+            environment: vec![
+                format!("PATH={coreutils}/bin").into_cstr().unwrap().into(),
+            ],
+            timeout: Duration::from_millis(50),
+            warnings: None,
+        };
+
+        let (result, mut build_log) =
+            call_perform_run_command(
+                source_root.as_fd(),
+                &action,
+                &input_paths,
+            );
+
+        assert_matches!(result, Ok(_));
+        let mut buf = String::new();
+        build_log.read_to_string(&mut buf).unwrap();
+        assert_eq!(buf, "Hello, world!\nbar.txt\nfoo.txt\n\
+                         regular.txt\nenoent.txt\n");
+    }
+
+    #[test]
     fn pid_1()
     {
-        let bash = var_os("SNOWFLAKE_BASH").unwrap();
-        let (result, mut build_log) = call_gist(
-            &Path::new(&bash).join("bin/bash"),
-            &["sh", "-c", "echo $$"],
-            Duration::from_millis(50),
-        );
-        assert_matches!(result, Ok(()));
+        let action = Action::RunCommand{
+            inputs: BTreeMap::new(),
+            outputs: vec![],
+            program: "/bin/sh".into(),
+            arguments: vec![
+                cstr!(b"sh").into(),
+                cstr!(b"-c").into(),
+                cstr!(b"echo $$").into(),
+            ],
+            environment: vec![],
+            timeout: Duration::from_millis(50),
+            warnings: None,
+        };
+        let source_root = open("/dev/null", O_PATH, 0).unwrap();
+        let (result, mut build_log) =
+            call_perform_run_command(source_root.as_fd(), &action, &[]);
+        assert_matches!(result, Ok(_));
         let mut buf = Vec::new();
         build_log.read_to_end(&mut buf).unwrap();
         assert_eq!(buf, b"1\n");
@@ -468,24 +679,38 @@ mod tests
     #[test]
     fn timeout()
     {
-        let coreutils = var_os("SNOWFLAKE_COREUTILS").unwrap();
-        let (result, _) = call_gist(
-            &Path::new(&coreutils).join("bin/sleep"),
-            &["sleep", "0.060"],
-            Duration::from_millis(50),
-        );
+        let coreutils = env!("SNOWFLAKE_COREUTILS");
+        let action = Action::RunCommand{
+            inputs: BTreeMap::new(),
+            outputs: vec![],
+            program: Path::new(&coreutils).join("bin/sleep"),
+            arguments: vec![cstr!(b"sleep").into(), cstr!(b"0.060").into()],
+            environment: vec![],
+            timeout: Duration::from_millis(50),
+            warnings: None,
+        };
+        let source_root = open("/dev/null", O_PATH, 0).unwrap();
+        let (result, _) =
+            call_perform_run_command(source_root.as_fd(), &action, &[]);
         assert_matches!(result, Err(Error::Timeout));
     }
 
     #[test]
     fn unsuccessful_termination()
     {
-        let coreutils = var_os("SNOWFLAKE_COREUTILS").unwrap();
-        let (result, _) = call_gist(
-            &Path::new(&coreutils).join("bin/false"),
-            &["false"],
-            Duration::from_millis(50),
-        );
+        let coreutils = env!("SNOWFLAKE_COREUTILS");
+        let action = Action::RunCommand{
+            inputs: BTreeMap::new(),
+            outputs: vec![],
+            program: Path::new(&coreutils).join("bin/false"),
+            arguments: vec![cstr!(b"false").into()],
+            environment: vec![],
+            timeout: Duration::from_millis(50),
+            warnings: None,
+        };
+        let source_root = open("/dev/null", O_PATH, 0).unwrap();
+        let (result, _) =
+            call_perform_run_command(source_root.as_fd(), &action, &[]);
         assert_matches!(result, Err(Error::ExitStatus(_)));
     }
 }

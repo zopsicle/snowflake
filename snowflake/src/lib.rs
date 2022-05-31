@@ -16,6 +16,7 @@
 #![feature(io_error_other)]
 #![feature(io_safety)]
 #![feature(let_chains)]
+#![feature(let_else)]
 #![feature(once_cell)]
 #![feature(panic_always_abort)]
 #![feature(type_ascription)]

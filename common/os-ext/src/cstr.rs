@@ -22,6 +22,15 @@ macro_rules! cstr
     };
 }
 
+/// Like [`cstr`], but wrap the string in [`Cow::Borrowed`].
+#[macro_export]
+macro_rules! cstr_cow
+{
+    ($lit:literal) => {
+        ::std::borrow::Cow::Borrowed(cstr!($lit))
+    };
+}
+
 /// Trait for conversion into C strings.
 pub trait IntoCStr<'a>
 {

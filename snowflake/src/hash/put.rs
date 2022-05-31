@@ -1,12 +1,7 @@
 use {
     crate::basename::Basename,
     super::{Blake3, Hash},
-    std::{
-        collections::BTreeMap,
-        ffi::{CStr, OsStr},
-        os::unix::ffi::OsStrExt,
-        path::Path,
-    },
+    std::{ffi::{CStr, OsStr}, os::unix::ffi::OsStrExt, path::Path},
 };
 
 /// Convenient methods for writing values.
@@ -84,17 +79,6 @@ impl Blake3
         self.put_usize(value.len());
         for value in value {
             f(self, value);
-        }
-        self
-    }
-
-    pub fn put_btree_map<F, K, V>(&mut self, value: &BTreeMap<K, V>, mut f: F)
-        -> &mut Self
-        where F: for<'a> FnMut(&'a mut Self, &K, &V) -> &'a mut Self
-    {
-        self.put_usize(value.len());
-        for (key, value) in value {
-            f(self, key, value);
         }
         self
     }

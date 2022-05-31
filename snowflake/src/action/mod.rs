@@ -62,18 +62,11 @@ impl Action
     ///
     /// The hashes of the inputs must be given in
     /// the same order as [`inputs`][`Self::inputs`].
-    pub fn hash<I>(&self, input_hashes: I) -> Hash
-        where I: IntoIterator<Item=Hash>
-    {
-        let mut h = Blake3::new();
-        self.hash_impl(&mut h, &mut input_hashes.into_iter());
-        h.finalize()
-    }
-
-    fn hash_impl(&self, h: &mut Blake3,
-                 input_hashes: &mut dyn Iterator<Item=Hash>)
+    pub fn hash<I>(&self, input_hashes: &[Hash]) -> Hash
     {
         // NOTE: See the manual chapter on avoiding hash collisions.
+
+        let mut h = Blake3::new();
 
         const ACTION_TYPE_CREATE_SYMBOLIC_LINK: u8 = 0;
         const ACTION_TYPE_WRITE_REGULAR_FILE:   u8 = 1;
@@ -82,11 +75,13 @@ impl Action
         match self {
 
             Self::CreateSymbolicLink{target} => {
+                debug_assert_eq!(input_hashes.len(), 0);
                 h.put_u8(ACTION_TYPE_CREATE_SYMBOLIC_LINK);
                 h.put_cstr(target);
             },
 
             Self::WriteRegularFile{content, executable} => {
+                debug_assert_eq!(input_hashes.len(), 0);
                 h.put_u8(ACTION_TYPE_WRITE_REGULAR_FILE);
                 h.put_bytes(content);
                 h.put_bool(*executable);
@@ -94,20 +89,14 @@ impl Action
 
             Self::RunCommand{inputs, outputs, program, arguments,
                              environment, timeout, warnings} => {
+                debug_assert_eq!(input_hashes.len(), inputs.len());
                 h.put_u8(ACTION_TYPE_RUN_COMMAND);
 
-                h.put_btree_map(inputs, |h, k, v| {
-                    h.put_basename(k);
-                    h.put_hash(input_hashes.next()
-                        .expect("Not enough inputs for computing action hash"));
-                    // Whether it's a dependency or a static file
-                    // cannot be observabled by the action,
-                    // so no need to include that in the hash.
-                    let _ = v;
-                    h
-                });
-                assert!(input_hashes.next().is_none(),
-                        "Too many inputs when computing action hash");
+                h.put_usize(inputs.len());
+                for (basename, hash) in inputs.keys().zip(input_hashes) {
+                    h.put_basename(basename);
+                    h.put_hash(*hash);
+                }
 
                 h.put_slice(outputs, |h, o| h.put_basename(o));
                 h.put_path(program);
@@ -125,6 +114,8 @@ impl Action
             },
 
         }
+
+        h.finalize()
     }
 
     /// The inputs of the action.
