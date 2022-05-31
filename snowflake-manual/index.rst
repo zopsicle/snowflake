@@ -5,6 +5,5 @@ Snowflake manual
 .. toctree::
 
    design-principles
-   caching-of-builds
+   how-snowflake-works
    development-notes/index
-   glossary

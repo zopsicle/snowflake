@@ -17,9 +17,9 @@ use {
 mod cache_output;
 
 // Paths to the different components of the state directory.
-const SCRATCHES_DIR:      &str = "scratches";
-const CACHED_ACTIONS_DIR: &str = "cached_actions";
-const CACHED_OUTPUTS_DIR: &str = "cached_outputs";
+const SCRATCHES_DIR:    &str = "scratches";
+const ACTION_CACHE_DIR: &str = "action-cache";
+const OUTPUT_CACHE_DIR: &str = "output-cache";
 
 /// Handle to a state directory.
 pub struct State
@@ -28,9 +28,9 @@ pub struct State
     state_dir: OwnedFd,
 
     // Handles to the different components of the state directory.
-    scratches_dir:      SyncOnceCell<OwnedFd>,
-    cached_actions_dir: SyncOnceCell<OwnedFd>,
-    cached_outputs_dir: SyncOnceCell<OwnedFd>,
+    scratches_dir:    SyncOnceCell<OwnedFd>,
+    action_cache_dir: SyncOnceCell<OwnedFd>,
+    output_cache_dir: SyncOnceCell<OwnedFd>,
 
     /// Name of the next scratch directory to create.
     next_scratch_dir: AtomicU32,
@@ -49,16 +49,19 @@ impl State
 
         let this = Self{
             state_dir,
-            scratches_dir:      SyncOnceCell::new(),
-            cached_actions_dir: SyncOnceCell::new(),
-            cached_outputs_dir: SyncOnceCell::new(),
-            next_scratch_dir:   AtomicU32::new(0),
+            scratches_dir:    SyncOnceCell::new(),
+            action_cache_dir: SyncOnceCell::new(),
+            output_cache_dir: SyncOnceCell::new(),
+            next_scratch_dir: AtomicU32::new(0),
         };
 
         Ok(this)
     }
 
     /// Handle to the scratches directory.
+    ///
+    /// The scratches directory contains scratch directories.
+    /// A scratch directory is a temporary directory for use while building.
     fn scratches_dir(&self) -> io::Result<BorrowedFd>
     {
         self.ensure_open_dir_once(&self.scratches_dir, SCRATCHES_DIR)
@@ -77,16 +80,16 @@ impl State
     }
 
     /// Handle to the action cache.
-    fn cached_actions_dir(&self) -> io::Result<BorrowedFd>
+    fn action_cache_dir(&self) -> io::Result<BorrowedFd>
     {
         #![allow(unused)]  // TODO: Use this somewhere.
-        self.ensure_open_dir_once(&self.cached_actions_dir, CACHED_ACTIONS_DIR)
+        self.ensure_open_dir_once(&self.action_cache_dir, ACTION_CACHE_DIR)
     }
 
     /// Handle to the output cache.
-    fn cached_outputs_dir(&self) -> io::Result<BorrowedFd>
+    fn output_cache_dir(&self) -> io::Result<BorrowedFd>
     {
-        self.ensure_open_dir_once(&self.cached_outputs_dir, CACHED_OUTPUTS_DIR)
+        self.ensure_open_dir_once(&self.output_cache_dir, OUTPUT_CACHE_DIR)
     }
 
     /// Move a file to the output cache.

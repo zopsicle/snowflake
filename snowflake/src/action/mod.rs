@@ -18,7 +18,7 @@ pub mod perform;
 
 mod graph;
 
-/// Configuration and dependencies of an action.
+/// Any type of action.
 #[allow(missing_docs)]
 pub enum Action
 {
@@ -44,34 +44,34 @@ pub enum Action
     },
 }
 
-/// Input to an action.
+/// Any type of input.
 pub enum Input
 {
     /// Dependency.
     Dependency(ActionOutputLabel),
 
-    /// Source file.
+    /// Static file.
     ///
     /// The path is interpreted to be relative to the source root.
-    Source(PathBuf),
+    StaticFile(PathBuf),
 }
 
 impl Action
 {
-    /// Compute the action hash of the action.
+    /// Compute the hash of the action.
     ///
     /// The hashes of the inputs must be given in
     /// the same order as [`inputs`][`Self::inputs`].
-    pub fn action_hash<I>(&self, input_hashes: I) -> Hash
+    pub fn hash<I>(&self, input_hashes: I) -> Hash
         where I: IntoIterator<Item=Hash>
     {
         let mut h = Blake3::new();
-        self.action_hash_impl(&mut h, &mut input_hashes.into_iter());
+        self.hash_impl(&mut h, &mut input_hashes.into_iter());
         h.finalize()
     }
 
-    fn action_hash_impl(&self, h: &mut Blake3,
-                        input_hashes: &mut dyn Iterator<Item=Hash>)
+    fn hash_impl(&self, h: &mut Blake3,
+                 input_hashes: &mut dyn Iterator<Item=Hash>)
     {
         // NOTE: See the manual chapter on avoiding hash collisions.
 
@@ -100,7 +100,7 @@ impl Action
                     h.put_basename(k);
                     h.put_hash(input_hashes.next()
                         .expect("Not enough inputs for computing action hash"));
-                    // Whether it's a dependency or a source file
+                    // Whether it's a dependency or a static file
                     // cannot be observabled by the action,
                     // so no need to include that in the hash.
                     let _ = v;
@@ -131,7 +131,7 @@ impl Action
     ///
     /// The order in which the inputs are yold by the iterator
     /// corresponds to the order in which they are expected
-    /// to be passed to [`action_hash`][`Self::action_hash`],
+    /// to be passed to [`hash`][`Self::hash`],
     /// [`perform`][`perform::perform`], and other places.
     pub fn inputs(&self) -> impl Iterator<Item=&Input>
     {
@@ -149,7 +149,7 @@ impl Action
         self.inputs().filter_map(|i| {
             match i {
                 Input::Dependency(d) => Some(d),
-                Input::Source(..) => None,
+                Input::StaticFile(..) => None,
             }
         })
     }

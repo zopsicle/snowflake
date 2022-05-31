@@ -35,7 +35,7 @@ impl State
         })?;
 
         // Move the output to the cache.
-        let cache = self.cached_outputs_dir()?;
+        let cache = self.output_cache_dir()?;
         renameat2(
             dirfd,       pathname,
             Some(cache), hash.to_string(),

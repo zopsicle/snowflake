@@ -1,7 +1,12 @@
 //! Snowflake build system.
 //!
-//! If the documentation mentions any terms unfamiliar to you,
-//! be sure to check out the [glossary](/snowflake-manual/glossary.html).
+//! The documentation for this crate does not define all terms.
+//! Refer to the [Snowflake manual] for a thorough description
+//! of all the terms and their concepts involved.
+//! Especially the [index] might be of interest.
+//!
+//! [Snowflake manual]: /snowflake-manual/index.html
+//! [index]: /snowflake-manual/genindex.html
 
 #![doc(html_logo_url = "/snowflake-manual/_static/logo.svg")]
 #![feature(assert_matches)]
