@@ -1,7 +1,7 @@
 //! Basenames of pathnames.
 
 use {
-    std::{ffi::OsStr, os::unix::ffi::OsStrExt, path::Path, sync::Arc},
+    std::{ffi::OsStr, fmt, os::unix::ffi::OsStrExt, path::Path, sync::Arc},
     thiserror::Error,
 };
 
@@ -10,7 +10,7 @@ use {
 /// Basenames are used at various places in the build system.
 /// They are used in package names, rule output names,
 /// and input and output names of run command actions.
-#[derive(Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct Basename
 {
@@ -84,5 +84,13 @@ impl AsRef<Path> for Basename
     fn as_ref(&self) -> &Path
     {
         self.as_path()
+    }
+}
+
+impl fmt::Debug for Basename
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        fmt::Debug::fmt(self.as_path(), f)
     }
 }

@@ -8,14 +8,16 @@
 
 use {
     super::Action,
+    anyhow::Context,
     os_ext::{O_CREAT, O_WRONLY, openat, symlinkat},
     std::{
-        ffi::{CStr, NulError},
+        ffi::CStr,
         fs::File,
-        io::{self, Write},
+        io::Write,
         os::unix::io::BorrowedFd,
         path::PathBuf,
         process::ExitStatusError,
+        time::Duration,
     },
     thiserror::Error,
 };
@@ -62,23 +64,14 @@ pub struct Summary
 #[derive(Debug, Error)]
 pub enum Error
 {
-    #[error("{0}")]
-    Io(#[from] io::Error),
-
-    #[error("{0}")]
-    Nul(#[from] NulError),
-
-    #[error("Input is not a regular file, directory, or symbolic link")]
-    InvalidInputFileType,
-
-    #[error("Container setup: {1}: {0}")]
-    ContainerSetup(io::Error, String),
-
-    #[error("Timeout")]
-    Timeout,
+    #[error("Timeout after {0:?}")]
+    Timeout(Duration),
 
     #[error("{0}")]
     ExitStatus(#[from] ExitStatusError),
+
+    #[error("Unexpected error: {0}")]
+    Unexpected(#[from] anyhow::Error),
 }
 
 /// Perform an action.
@@ -108,7 +101,8 @@ pub fn perform(perform: &Perform, action: &Action, input_paths: &[PathBuf])
 fn perform_create_symbolic_link(perform: &Perform, target: &CStr) -> Result
 {
     let output_path = PathBuf::from("output");
-    symlinkat(target, Some(perform.scratch), &output_path)?;
+    symlinkat(target, Some(perform.scratch), &output_path)
+        .context("Create symbolic link")?;
     Ok(Summary{output_paths: vec![output_path], warnings: false})
 }
 
@@ -121,8 +115,10 @@ fn perform_write_regular_file(
     let output_path = PathBuf::from("output");
     let flags = O_CREAT | O_WRONLY;
     let mode = if executable { 0o755 } else { 0o644 };
-    let file = openat(Some(perform.scratch), &output_path, flags, mode)?;
-    File::from(file).write_all(content)?;
+    let file = openat(Some(perform.scratch), &output_path, flags, mode)
+        .context("Open regular file")?;
+    File::from(file).write_all(content)
+        .context("Write regular file")?;
     Ok(Summary{output_paths: vec![output_path], warnings: false})
 }
 

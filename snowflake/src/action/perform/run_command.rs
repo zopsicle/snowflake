@@ -1,6 +1,7 @@
 use {
     crate::basename::Basename,
     super::{super::{Action, Input}, Error, Perform, Summary},
+    anyhow::Context,
     os_ext::{
         AT_SYMLINK_NOFOLLOW,
         S_IFDIR, S_IFLNK, S_IFMT, S_IFREG,
@@ -48,7 +49,7 @@ pub fn perform_run_command(
     let mut mounts = Vec::new();
 
     // Perform the run command action.
-    let scratch_path = resolve_magic(*scratch)?;
+    let scratch_path = resolve_magic(*scratch)                                  .with_context(|| "Find path to scratch directory")?;
     populate_root_directory(*scratch)?;
     populate_dev_directory(*scratch, &mut mounts)?;
     install_blessed_programs(*scratch)?;
@@ -108,15 +109,16 @@ impl<'a> Mount<'a>
 /// Populate the container's `/` directory.
 fn populate_root_directory(scratch: BorrowedFd) -> Result<(), Error>
 {
-    mkdirat(Some(scratch), cstr!(b"bin"),       0o755)?;
-    mkdirat(Some(scratch), cstr!(b"dev"),       0o755)?;
-    mkdirat(Some(scratch), cstr!(b"nix"),       0o755)?;
-    mkdirat(Some(scratch), cstr!(b"nix/store"), 0o755)?;
-    mkdirat(Some(scratch), cstr!(b"proc"),      0o555)?;  // (sic)
-    mkdirat(Some(scratch), cstr!(b"root"),      0o755)?;
-    mkdirat(Some(scratch), cstr!(b"usr"),       0o755)?;
-    mkdirat(Some(scratch), cstr!(b"usr/bin"),   0o755)?;
-    mkdirat(Some(scratch), cstr!(b"build"),     0o755)?;
+    let mk = |path, mode| mkdirat(Some(scratch), path, mode)                    .with_context(|| format!("Create {path:?} inside container"));
+    mk(cstr!(b"bin"),       0o755)?;
+    mk(cstr!(b"dev"),       0o755)?;
+    mk(cstr!(b"nix"),       0o755)?;
+    mk(cstr!(b"nix/store"), 0o755)?;
+    mk(cstr!(b"proc"),      0o555)?;  // (sic)
+    mk(cstr!(b"root"),      0o755)?;
+    mk(cstr!(b"usr"),       0o755)?;
+    mk(cstr!(b"usr/bin"),   0o755)?;
+    mk(cstr!(b"build"),     0o755)?;
     Ok(())
 }
 
@@ -125,9 +127,10 @@ fn populate_dev_directory(scratch: BorrowedFd, mounts: &mut Vec<Mount>)
     -> Result<(), Error>
 {
     // The standard streams are symbolic links, so they cannot be mounted.
-    symlinkat(cstr!(b"/proc/self/fd/0"), Some(scratch), cstr!(b"dev/stdin"))?;
-    symlinkat(cstr!(b"/proc/self/fd/1"), Some(scratch), cstr!(b"dev/stdout"))?;
-    symlinkat(cstr!(b"/proc/self/fd/2"), Some(scratch), cstr!(b"dev/stderr"))?;
+    let mk = |target, path| symlinkat(target, Some(scratch), path)              .with_context(|| format!("Create {path:?} inside container"));
+    mk(cstr!(b"/proc/self/fd/0"), cstr!(b"dev/stdin"))?;
+    mk(cstr!(b"/proc/self/fd/1"), cstr!(b"dev/stdout"))?;
+    mk(cstr!(b"/proc/self/fd/2"), cstr!(b"dev/stderr"))?;
 
     // Device files cannot be created directly; mknod fails with EPERM.
     // Instead, we mknod a regular file for each device file,
@@ -137,7 +140,7 @@ fn populate_dev_directory(scratch: BorrowedFd, mounts: &mut Vec<Mount>)
         let source = Path::new("/dev").join(basename);
         let target = Path::new("dev").join(basename);
 
-        mknodat(Some(scratch), &target, S_IFREG | 0o644, 0)?;
+        mknodat(Some(scratch), &target, S_IFREG | 0o644, 0)                     .with_context(|| format!("Create {target:?} inside container"))?;
 
         let mount = Mount{
             source: source.into_cstr().unwrap(),
@@ -158,10 +161,13 @@ fn populate_dev_directory(scratch: BorrowedFd, mounts: &mut Vec<Mount>)
 /// so having them not be where expected is very annoying.
 fn install_blessed_programs(scratch: BorrowedFd) -> Result<(), Error>
 {
-    let sh  = concat!(env!("SNOWFLAKE_BASH"), "/bin/bash").into_cstr()?;
-    let env = concat!(env!("SNOWFLAKE_COREUTILS"), "/bin/env").into_cstr()?;
-    symlinkat(&sh,  Some(scratch), cstr!(b"bin/sh"))?;
-    symlinkat(&env, Some(scratch), cstr!(b"usr/bin/env"))?;
+    static SH:  &str = concat!(env!("SNOWFLAKE_BASH"),      "/bin/bash");
+    static ENV: &str = concat!(env!("SNOWFLAKE_COREUTILS"), "/bin/env");
+
+    let mk = |target: &CStr, path| symlinkat(target, Some(scratch), path)       .with_context(|| format!("Create {path:?} inside container"));
+    mk(&SH.into_cstr().unwrap(),  cstr!(b"bin/sh"))?;
+    mk(&ENV.into_cstr().unwrap(), cstr!(b"usr/bin/env"))?;
+
     Ok(())
 }
 
@@ -215,11 +221,14 @@ fn mount_inputs(
         resolve_magic(source_root)
         .map(CString::into_bytes)
         .map(OsString::from_vec)
-        .map(PathBuf::from)?;
+        .map(PathBuf::from)
+        .with_context(|| "Find path to source root")?;
 
     for (input_basename, input_path) in inputs.keys().zip(input_paths) {
         mount_input(&source_root_path, scratch, input_basename,
-                    input_path, mounts)?;
+                    input_path, mounts)
+            .with_context(|| format!("Mount input {input_path:?} \
+                                      at {input_basename:?}"))?;
     }
 
     Ok(())
@@ -232,7 +241,7 @@ fn mount_input(
     input_basename: &Basename,
     input_path: &Path,
     mounts: &mut Vec<Mount>,
-) -> Result<(), Error>
+) -> anyhow::Result<()>
 {
     // Make the input path absolute so it can be mounted.
     let input_path = source_root_path.join(input_path);
@@ -241,26 +250,29 @@ fn mount_input(
     let target = Path::new("build").join(input_basename);
 
     // How to mount the input depends on what type of file it is.
-    let statbuf = fstatat(None, &input_path, AT_SYMLINK_NOFOLLOW)?;
+    let statbuf = fstatat(None, &input_path, AT_SYMLINK_NOFOLLOW)               .with_context(|| "Find file type of input")?;
     match statbuf.st_mode & S_IFMT {
         S_IFREG => {
             // If it's a regular file, the target must be a regular file.
-            mknodat(Some(scratch), &target, S_IFREG | 0o644, 0)?;
-            mounts.extend(Mount::rdonly_bind_mount(input_path, target)?);
+            mknodat(Some(scratch), &target, S_IFREG | 0o644, 0)                 .with_context(|| "Create mount target")?;
+            let mount = Mount::rdonly_bind_mount(input_path, target)            .with_context(|| "Prepare mount arguments")?;
+            mounts.extend(mount);
         },
         S_IFDIR => {
             // If it's a directory, the target must be a directory.
-            mkdirat(Some(scratch), &target, 0o755)?;
-            mounts.extend(Mount::rdonly_bind_mount(input_path, target)?);
+            mkdirat(Some(scratch), &target, 0o755)                              .with_context(|| "Create mount target")?;
+            let mount = Mount::rdonly_bind_mount(input_path, target)            .with_context(|| "Prepare mount arguments")?;
+            mounts.extend(mount);
         },
         S_IFLNK => {
             // If it's a symbolic link, we're fucked as they can't be mounted.
             // Copy the symbolic link instead (should be fast; they're small).
-            let symlink_target = readlinkat(None, input_path)?;
-            symlinkat(&symlink_target, Some(scratch), target)?;
+            let symlink_target = readlinkat(None, input_path)                   .with_context(|| "Find target of symbolic link")?;
+            symlinkat(&symlink_target, Some(scratch), target)                   .with_context(|| "Create copy of symbolic link")?;
         },
         _ =>
-            return Err(Error::InvalidInputFileType),
+            unreachable!("Input has been hashed by the driver,
+                          so it can only be of a supported type"),
     }
 
     Ok(())
@@ -284,7 +296,7 @@ fn output_paths(outputs: &[Arc<Basename>]) -> Vec<PathBuf>
 fn resolve_magic(fd: BorrowedFd) -> Result<CString, Error>
 {
     let magic = format!("/proc/self/fd/{}", fd.as_raw_fd());
-    readlink(magic).map_err(Error::from)
+    readlink(magic).map_err(|err| Error::from(anyhow::Error::from(err)))
 }
 
 /// Run the command in the already set up container.
@@ -308,13 +320,13 @@ fn run_command(
     let gid_map = format!("0 {} 1\n", getgid());
 
     // Prepare arguments to execve.
-    let program = program.into_cstr()?;
+    let program = program.into_cstr()                                           .with_context(|| "Prepare path to program")?;
     let (execve_argv, _execve_argv) = prepare_argv_envp(arguments);
     let (execve_envp, _execve_envp) = prepare_argv_envp(environment);
 
     // This pipe is used by the child to send pre-execve errors to the parent.
     // Since CLOEXEC is enabled, the parent knows execve has succeeded.
-    let (pipe_r, pipe_w) = pipe2(0)?;
+    let (pipe_r, pipe_w) = pipe2(0)                                             .with_context(|| "Create pipe for parent-child communication")?;
 
     // Zero-initialize this because we don't use most of its features.
     let mut cl_args = unsafe { zeroed::<clone_args>() };
@@ -450,7 +462,10 @@ fn run_command(
     // If clone3 returns -1, something went wrong.
     // In this case, child and pidfd are both not created.
     if pid == -1 {
-        return Err(io::Error::last_os_error().into());
+        let error = io::Error::last_os_error();
+        return Err(anyhow::Error::from(error))
+            .with_context(|| "Fork child process")
+            .map_err(Error::from);
     }
 
     // If any of the code below fails, kill the child.
@@ -471,14 +486,17 @@ fn run_command(
     // On EOF, we know that execve was successful.
     // On data, the child has written an error to us.
     let mut buf = [0; 128];
-    let nread = File::from(pipe_r).read(&mut buf)?;
+    let nread = File::from(pipe_r).read(&mut buf)                               .with_context(|| "Read from pipe")?;
     if nread != 0 {
         // First four bytes are errno, remaining bytes are error message.
         let io_error = i32::from_ne_bytes(buf[.. 4].try_into().unwrap());
         let io_error = io::Error::from_raw_os_error(io_error);
         let message = String::from_utf8_lossy(&buf[4 ..]);
         let message = message.trim_end_matches('\0').to_owned();
-        return Err(Error::ContainerSetup(io_error, message));
+        return Err(anyhow::Error::from(io_error))
+            .with_context(|| message)
+            .with_context(|| "Post-fork pre-execve setup")
+            .map_err(Error::from);
     }
 
     // A pidfd reports "readable" when the child terminates.
@@ -490,18 +508,21 @@ fn run_command(
     };
 
     // Convert timeout from Duration to libc::timespec.
-    let timeout = libc::timespec{
+    let ptimeout = libc::timespec{
         tv_sec: timeout.as_secs().try_into().unwrap_or(libc::time_t::MAX),
         tv_nsec: timeout.subsec_nanos().try_into().unwrap_or(libc::c_long::MAX),
     };
 
     // Wait for the child to terminate or the timeout to occur.
-    let ppoll = unsafe { libc::ppoll(&mut pollfd, 1, &timeout, null()) };
+    let ppoll = unsafe { libc::ppoll(&mut pollfd, 1, &ptimeout, null()) };
     if ppoll == -1 {
-        return Err(io::Error::last_os_error().into());
+        let error = io::Error::last_os_error();
+        return Err(anyhow::Error::from(error))
+            .with_context(|| "Poll child process")
+            .map_err(Error::from);
     }
     if ppoll == 0 {
-        return Err(Error::Timeout);
+        return Err(Error::Timeout(timeout));
     }
 
     // The child has terminated, so no need to kill it.
@@ -692,7 +713,7 @@ mod tests
         let source_root = open("/dev/null", O_PATH, 0).unwrap();
         let (result, _) =
             call_perform_run_command(source_root.as_fd(), &action, &[]);
-        assert_matches!(result, Err(Error::Timeout));
+        assert_matches!(result, Err(Error::Timeout(_)));
     }
 
     #[test]
