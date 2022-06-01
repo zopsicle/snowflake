@@ -1,5 +1,5 @@
 use {
-    crate::{cstr::IntoCStr, retry_on_eintr, stat},
+    crate::{cstr::IntoCStr, stat},
     std::{
         ffi::CStr,
         io,
@@ -23,24 +23,22 @@ pub fn fstatat<'a>(
     {
         let mut statbuf = MaybeUninit::uninit();
 
-        retry_on_eintr(|| {
-            // SAFETY: path is NUL-terminated.
-            let result = unsafe {
-                libc::fstatat(
-                    dirfd,
-                    pathname.as_ptr(),
-                    statbuf.as_mut_ptr(),
-                    flags,
-                )
-            };
+        // SAFETY: path is NUL-terminated.
+        let result = unsafe {
+            libc::fstatat(
+                dirfd,
+                pathname.as_ptr(),
+                statbuf.as_mut_ptr(),
+                flags,
+            )
+        };
 
-            if result == -1 {
-                return Err(io::Error::last_os_error());
-            }
+        if result == -1 {
+            return Err(io::Error::last_os_error());
+        }
 
-            // SAFETY: fstatat initialized statbuf.
-            Ok(unsafe { statbuf.assume_init() })
-        })
+        // SAFETY: fstatat initialized statbuf.
+        Ok(unsafe { statbuf.assume_init() })
     }
 
     let dirfd = dirfd.map(|fd| fd.as_raw_fd()).unwrap_or(libc::AT_FDCWD);
@@ -68,18 +66,16 @@ pub fn mkdirat<'a>(
     fn monomorphic(dirfd: libc::c_int, pathname: &CStr, mode: libc::mode_t)
         -> io::Result<()>
     {
-        retry_on_eintr(|| {
-            // SAFETY: path is NUL-terminated.
-            let result = unsafe {
-                libc::mkdirat(dirfd, pathname.as_ptr(), mode)
-            };
+        // SAFETY: path is NUL-terminated.
+        let result = unsafe {
+            libc::mkdirat(dirfd, pathname.as_ptr(), mode)
+        };
 
-            if result == -1 {
-                return Err(io::Error::last_os_error());
-            }
+        if result == -1 {
+            return Err(io::Error::last_os_error());
+        }
 
-            Ok(())
-        })
+        Ok(())
     }
 
     let dirfd = dirfd.map(|fd| fd.as_raw_fd()).unwrap_or(libc::AT_FDCWD);
@@ -115,18 +111,16 @@ pub fn mknodat<'a>(
         dev: libc::dev_t,
     ) -> io::Result<()>
     {
-        retry_on_eintr(|| {
-            // SAFETY: path is NUL-terminated.
-            let result = unsafe {
-                libc::mknodat(dirfd, pathname.as_ptr(), mode, dev)
-            };
+        // SAFETY: path is NUL-terminated.
+        let result = unsafe {
+            libc::mknodat(dirfd, pathname.as_ptr(), mode, dev)
+        };
 
-            if result == -1 {
-                return Err(io::Error::last_os_error());
-            }
+        if result == -1 {
+            return Err(io::Error::last_os_error());
+        }
 
-            Ok(())
-        })
+        Ok(())
     }
 
     let dirfd = dirfd.map(|fd| fd.as_raw_fd()).unwrap_or(libc::AT_FDCWD);

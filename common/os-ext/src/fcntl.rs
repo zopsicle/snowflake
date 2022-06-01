@@ -1,5 +1,5 @@
 use {
-    crate::{cstr::IntoCStr, retry_on_eintr},
+    crate::cstr::IntoCStr,
     std::{
         ffi::CStr,
         io,
@@ -35,19 +35,17 @@ pub fn openat<'a>(
         mode: libc::mode_t,
     ) -> io::Result<OwnedFd>
     {
-        retry_on_eintr(|| {
-            // SAFETY: path is NUL-terminated.
-            let fd = unsafe {
-                libc::openat(dirfd, pathname.as_ptr(), flags, mode)
-            };
+        // SAFETY: path is NUL-terminated.
+        let fd = unsafe {
+            libc::openat(dirfd, pathname.as_ptr(), flags, mode)
+        };
 
-            if fd == -1 {
-                return Err(io::Error::last_os_error());
-            }
+        if fd == -1 {
+            return Err(io::Error::last_os_error());
+        }
 
-            // SAFETY: fd is a new, open file descriptor.
-            Ok(unsafe { OwnedFd::from_raw_fd(fd) })
-        })
+        // SAFETY: fd is a new, open file descriptor.
+        Ok(unsafe { OwnedFd::from_raw_fd(fd) })
     }
 
     let dirfd = dirfd.map(|fd| fd.as_raw_fd()).unwrap_or(libc::AT_FDCWD);

@@ -7,6 +7,10 @@
 //! This is in contrast with the std crate, which gives no such guarantees.
 //! This is a trade-off against cross-platform compatibility.
 //!
+//! There are no automatic retries on `EINTR` (unlike most of the std crate),
+//! because signal handlers are a Unix misfeature which shouldn't be used.
+//! If you need to handle signals, use `signalfd` instead of signal handlers.
+//!
 //! # Differences with underlying system calls
 //!
 //! Errors are reported using [`Result`] rather than
@@ -21,9 +25,6 @@
 //! it is created with the `FD_CLOEXEC` bit set (atomically).
 //! That is, the `*_CLOEXEC` flag is set implicitly by the wrapper functions.
 //! This ensures no resources are leaked in a threaded program that forks.
-//!
-//! If the system call fails with `EINTR` (interrupted),
-//! the wrapper function automatically retries it.
 //!
 //! [`Result`]: `std::io::Result`
 
@@ -43,8 +44,6 @@ pub use {
     },
 };
 
-use std::io::{self, ErrorKind::Interrupted};
-
 pub mod cstr;
 
 mod dirent_;
@@ -57,15 +56,3 @@ mod unistd;
 // Cannot `pub use` as that would also export the stat function.
 #[allow(missing_docs, non_camel_case_types)]
 pub type stat = libc::stat;
-
-/// Call `f` until it no longer fails with `EINTR`.
-fn retry_on_eintr<F, T>(mut f: F) -> io::Result<T>
-    where F: FnMut() -> io::Result<T>
-{
-    loop {
-        match f() {
-            Err(err) if err.kind() == Interrupted => continue,
-            result                                => return result,
-        }
-    }
-}

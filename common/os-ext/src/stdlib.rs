@@ -1,5 +1,5 @@
 use {
-    crate::{cstr::IntoCStr, retry_on_eintr},
+    crate::cstr::IntoCStr,
     std::{
         ffi::{CString, OsString},
         io,
@@ -17,18 +17,14 @@ pub fn mkdtemp<'a>(template: impl IntoCStr<'a>) -> io::Result<PathBuf>
         // CString::as_mut_ptr does not exist.
         let mut template = template.into_bytes_with_nul();
 
-        retry_on_eintr(|| {
-            // SAFETY: template is NUL-terminated.
-            let ptr = unsafe {
-                libc::mkdtemp(template.as_mut_ptr() as *mut libc::c_char)
-            };
+        // SAFETY: template is NUL-terminated.
+        let ptr = unsafe {
+            libc::mkdtemp(template.as_mut_ptr() as *mut libc::c_char)
+        };
 
-            if ptr.is_null() {
-                return Err(io::Error::last_os_error());
-            }
-
-            Ok(())
-        })?;
+        if ptr.is_null() {
+            return Err(io::Error::last_os_error());
+        }
 
         // Remove NUL.
         template.pop();

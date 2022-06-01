@@ -1,5 +1,5 @@
 use {
-    crate::{cstr::IntoCStr, retry_on_eintr},
+    crate::cstr::IntoCStr,
     std::{ffi::CStr, io, os::unix::io::{AsRawFd, BorrowedFd}},
 };
 
@@ -23,22 +23,20 @@ pub fn renameat2<'a, 'b>(
         flags:    libc::c_uint,
     ) -> io::Result<()>
     {
-        retry_on_eintr(|| {
-            // SAFETY: Paths are NUL-terminated.
-            let result = unsafe {
-                libc::renameat2(
-                    olddirfd, oldpath.as_ptr(),
-                    newdirfd, newpath.as_ptr(),
-                    flags,
-                )
-            };
+        // SAFETY: Paths are NUL-terminated.
+        let result = unsafe {
+            libc::renameat2(
+                olddirfd, oldpath.as_ptr(),
+                newdirfd, newpath.as_ptr(),
+                flags,
+            )
+        };
 
-            if result == -1 {
-                return Err(io::Error::last_os_error());
-            }
+        if result == -1 {
+            return Err(io::Error::last_os_error());
+        }
 
-            Ok(())
-        })
+        Ok(())
     }
 
     let olddirfd = olddirfd.map(|fd| fd.as_raw_fd()).unwrap_or(libc::AT_FDCWD);
