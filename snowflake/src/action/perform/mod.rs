@@ -26,7 +26,7 @@ pub struct Perform<'a>
     /// File that contains the build log.
     pub build_log: BorrowedFd<'a>,
 
-    /// Source root directory.
+    /// Source root, to which input paths are relative.
     pub source_root: BorrowedFd<'a>,
 
     /// Scratch directory which the action may use freely.
