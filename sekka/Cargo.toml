@@ -1,17 +1,10 @@
+cargo-features = ["workspace-inheritance"]
+
 [package]
 name = "sekka"
 version = "0.0.0"
 edition = "2021"
 
-[dependencies.smallvec]
-features = [
-    "const_generics",
-    "union",
-]
-version = "^1.8.0"
-
-[dependencies.thiserror]
-version = "^1.0.31"
-
-[dependencies.typed-arena]
-version = "^2.0.1"
+[dependencies]
+thiserror.workspace = true
+typed-arena.workspace = true

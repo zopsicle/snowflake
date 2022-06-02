@@ -99,23 +99,14 @@ version = "0.0.0"
 name = "sekka"
 version = "0.0.0"
 dependencies = [
- "smallvec",
  "thiserror",
  "typed-arena",
 ]
 
 [[package]]
-name = "smallvec"
-version = "1.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2dd574626839106c320a323308629dcb1acfc96e32a8cba364ddc61ac23ee83"
-
-[[package]]
 name = "snowflake"
 version = "0.0.0"
 dependencies = [
- "anyhow",
- "libc",
  "os-ext",
  "regex",
  "scope-exit",

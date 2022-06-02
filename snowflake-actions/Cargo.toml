@@ -1,22 +1,17 @@
+cargo-features = ["workspace-inheritance"]
+
 [package]
 name = "snowflake-actions"
 version = "0.0.0"
 edition = "2021"
 
-[dependencies.anyhow]
-version = "^1.0.57"
+[dependencies]
+anyhow.workspace = true
+libc.workspace = true
+regex.workspace = true
 
 [dependencies.os-ext]
 path = "../common/os-ext"
-
-[dependencies.libc]
-version = "~0.2.125"
-
-[dependencies.regex]
-# Don't need Unicode support.
-default-features = false
-features = [ "perf", "std" ]
-version = "^1.5.6"
 
 [dependencies.scope-exit]
 path = "../common/scope-exit"
