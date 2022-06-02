@@ -1,6 +1,6 @@
 use {
     crate::basename::Basename,
-    super::{super::{Action, Input}, Error, Perform, Summary},
+    super::{super::Action, Error, Perform, Summary},
     anyhow::Context,
     os_ext::{
         AT_SYMLINK_NOFOLLOW,
@@ -14,7 +14,6 @@ use {
     scope_exit::ScopeExit,
     std::{
         borrow::Cow,
-        collections::BTreeMap,
         ffi::{CStr, CString, NulError, OsString},
         fs::File,
         io::{self, BufRead, BufReader, Read, Seek},
@@ -213,7 +212,7 @@ fn mount_nix_store(mounts: &mut Vec<Mount>)
 fn mount_inputs(
     source_root: BorrowedFd,
     scratch: BorrowedFd,
-    inputs: &BTreeMap<Arc<Basename>, Input>,
+    inputs: &[Arc<Basename>],
     input_paths: &[PathBuf],
     mounts: &mut Vec<Mount>,
 ) -> Result<(), Error>
@@ -227,7 +226,7 @@ fn mount_inputs(
         .map(PathBuf::from)
         .with_context(|| "Find path to source root")?;
 
-    for (input_basename, input_path) in inputs.keys().zip(input_paths) {
+    for (input_basename, input_path) in inputs.iter().zip(input_paths) {
         mount_input(&source_root_path, scratch, input_basename,
                     input_path, mounts)
             .with_context(|| format!("Mount input {input_path:?} \
@@ -650,14 +649,10 @@ mod tests
     {
         let coreutils = env!("SNOWFLAKE_COREUTILS");
 
-        let inputs: BTreeMap<_, _> =
+        let inputs: Vec<_> =
             ["regular.txt", "directory", "symlink.lnk", "broken.lnk"]
             .into_iter()
-            .map(|i| {
-                // Only the keys of the inputs map are used.
-                let dummy = Input::StaticFile(PathBuf::new());
-                (Arc::<Basename>::from(Basename::new(i).unwrap()), dummy)
-            })
+            .map(|i| Arc::<Basename>::from(Basename::new(i).unwrap()))
             .collect();
 
         let source_root =
@@ -665,7 +660,7 @@ mod tests
                 .unwrap();
 
         let input_paths: Vec<PathBuf> =
-            inputs.keys()
+            inputs.iter()
             .map(|i| i.as_path().into())
             .collect();
 
@@ -708,7 +703,7 @@ mod tests
     fn pid_1()
     {
         let action = Action::RunCommand{
-            inputs: BTreeMap::new(),
+            inputs: vec![],
             outputs: vec![],
             program: "/bin/sh".into(),
             arguments: vec![
@@ -734,7 +729,7 @@ mod tests
     {
         let coreutils = env!("SNOWFLAKE_COREUTILS");
         let action = Action::RunCommand{
-            inputs: BTreeMap::new(),
+            inputs: vec![],
             outputs: vec![],
             program: Path::new(&coreutils).join("bin/sleep"),
             arguments: vec![cstr!(b"sleep").into(), cstr!(b"0.060").into()],
@@ -753,7 +748,7 @@ mod tests
     {
         let coreutils = env!("SNOWFLAKE_COREUTILS");
         let action = Action::RunCommand{
-            inputs: BTreeMap::new(),
+            inputs: vec![],
             outputs: vec![],
             program: Path::new(&coreutils).join("bin/false"),
             arguments: vec![cstr!(b"false").into()],
@@ -771,7 +766,7 @@ mod tests
     fn warnings()
     {
         let action = Action::RunCommand{
-            inputs: BTreeMap::new(),
+            inputs: vec![],
             outputs: vec![],
             program: "/bin/sh".into(),
             arguments: vec![

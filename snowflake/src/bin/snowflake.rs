@@ -32,86 +32,93 @@ fn main()
         actions: [
             (
                 asx0,
-                Action::WriteRegularFile{
-                    content: "hello".into(),
-                    executable: false,
-                },
+                (
+                    Action::WriteRegularFile{
+                        content: "hello".into(),
+                        executable: false,
+                    },
+                    vec![],
+                ),
             ),
             (
                 asx1,
-                Action::RunCommand{
-                    inputs: [
-                        (
+                (
+                    Action::RunCommand{
+                        inputs: vec![
                             Arc::from(Basename::new("a").unwrap()),
-                            Input::Dependency(osx00),
-                        ),
-                        (
                             Arc::from(Basename::new("b").unwrap()),
-                            Input::Dependency(osx01.clone()),
-                        ),
-                    ].into_iter().collect(),
-                    outputs: vec![Arc::from(Basename::new("o").unwrap())],
-                    program: "/run/current-system/sw/bin/sleep".into(),
-                    arguments: vec![],
-                    environment: vec![],
-                    timeout: Duration::from_secs(60),
-                    warnings: None,
-                },
+                        ],
+                        outputs: vec![Arc::from(Basename::new("o").unwrap())],
+                        program: "/run/current-system/sw/bin/sleep".into(),
+                        arguments: vec![],
+                        environment: vec![],
+                        timeout: Duration::from_secs(60),
+                        warnings: None,
+                    },
+                    vec![
+                        Input::Dependency(osx00),
+                        Input::Dependency(osx01.clone()),
+                    ],
+                ),
             ),
             (
                 asy0,
-                Action::RunCommand{
-                    inputs: [
-                        (
+                (
+                    Action::RunCommand{
+                        inputs: vec![
                             Arc::from(Basename::new("c").unwrap()),
-                            Input::Dependency(osx01),
-                        ),
-                        (
                             Arc::from(Basename::new("d").unwrap()),
-                            Input::Dependency(osx10.clone()),
-                        ),
-                    ].into_iter().collect(),
-                    outputs: vec![Arc::from(Basename::new("o").unwrap())],
-                    program: "/run/current-system/sw/bin/sleep".into(),
-                    arguments: vec![],
-                    environment: vec![],
-                    timeout: Duration::from_secs(60),
-                    warnings: None,
-                },
+                        ],
+                        outputs: vec![Arc::from(Basename::new("o").unwrap())],
+                        program: "/run/current-system/sw/bin/sleep".into(),
+                        arguments: vec![],
+                        environment: vec![],
+                        timeout: Duration::from_secs(60),
+                        warnings: None,
+                    },
+                    vec![
+                        Input::Dependency(osx01),
+                        Input::Dependency(osx10.clone()),
+                    ],
+                ),
             ),
             (
                 asy1,
-                Action::RunCommand{
-                    inputs: [
-                        (
+                (
+                    Action::RunCommand{
+                        inputs: vec![
                             Arc::from(Basename::new("e").unwrap()),
-                            Input::Dependency(osx10.clone()),
-                        ),
-                    ].into_iter().collect(),
-                    outputs: vec![Arc::from(Basename::new("o").unwrap())],
-                    program: "/run/current-system/sw/bin/sleep".into(),
-                    arguments: vec![],
-                    environment: vec![],
-                    timeout: Duration::from_secs(60),
-                    warnings: Some(Regex::new("^warning:").unwrap()),
-                },
+                        ],
+                        outputs: vec![Arc::from(Basename::new("o").unwrap())],
+                        program: "/run/current-system/sw/bin/sleep".into(),
+                        arguments: vec![],
+                        environment: vec![],
+                        timeout: Duration::from_secs(60),
+                        warnings: Some(Regex::new("^warning:").unwrap()),
+                    },
+                    vec![
+                        Input::Dependency(osx10.clone()),
+                    ],
+                ),
             ),
             (
                 asz0,
-                Action::RunCommand{
-                    inputs: [
-                        (
+                (
+                    Action::RunCommand{
+                        inputs: vec![
                             Arc::from(Basename::new("f").unwrap()),
-                            Input::Dependency(osx10.clone()),
-                        ),
-                    ].into_iter().collect(),
-                    outputs: [].into_iter().collect(),
-                    program: "/run/current-system/sw/bin/sleep".into(),
-                    arguments: vec![],
-                    environment: vec![],
-                    timeout: Duration::from_secs(60),
-                    warnings: Some(Regex::new("").unwrap()),
-                },
+                        ],
+                        outputs: [].into_iter().collect(),
+                        program: "/run/current-system/sw/bin/sleep".into(),
+                        arguments: vec![],
+                        environment: vec![],
+                        timeout: Duration::from_secs(60),
+                        warnings: Some(Regex::new("").unwrap()),
+                    },
+                    vec![
+                        Input::Dependency(osx10.clone()),
+                    ],
+                ),
             ),
         ].into_iter().collect(),
         artifacts: [osx10, osy00].into_iter().collect(),

@@ -1,7 +1,7 @@
 use {
     crate::label::{ActionLabel, ActionOutputLabel},
     super::Action,
-    std::{collections::{HashMap, HashSet}, fmt},
+    std::{collections::{HashMap, HashSet}, fmt, path::PathBuf},
 };
 
 /// Action graph encoded as an adjacency list.
@@ -10,12 +10,35 @@ use {
 /// The edges of the graph are encoded by the dependency sets of the actions.
 pub struct ActionGraph
 {
-    /// Actions to perform, in the order implied
-    /// by [dependencies][`Action::dependencies`].
-    pub actions: HashMap<ActionLabel, Action>,
+    /// Actions to perform, in the order implied by their dependency graph.
+    pub actions: HashMap<ActionLabel, (Action, Vec<Input>)>,
 
     /// Artifacts of the requested build.
     pub artifacts: HashSet<ActionOutputLabel>,
+}
+
+/// Any type of input.
+pub enum Input
+{
+    /// Dependency.
+    Dependency(ActionOutputLabel),
+
+    /// Static file.
+    ///
+    /// The path is interpreted to be relative to the source root.
+    StaticFile(PathBuf),
+}
+
+impl Input
+{
+    /// If this input is a dependency, the dependency.
+    pub fn dependency(&self) -> Option<&ActionOutputLabel>
+    {
+        match self {
+            Self::Dependency(d) => Some(d),
+            Self::StaticFile(..) => None,
+        }
+    }
 }
 
 impl ActionGraph
@@ -31,13 +54,13 @@ impl ActionGraph
         // Lint actions are always considered live.
         live.extend(
             self.actions.iter()
-            .filter(|a| a.1.is_lint_action())
+            .filter(|a| a.1.0.is_lint_action())
             .map(|a| a.0.clone())
         );
 
         // Use mark-and-sweep to find other live actions.
         fn mark_recursively<'a>(
-            graph: &HashMap<ActionLabel, Action>,
+            graph: &HashMap<ActionLabel, (Action, Vec<Input>)>,
             live: &mut HashSet<ActionLabel>,
             outputs: impl Iterator<Item=&'a ActionOutputLabel>,
         )
@@ -46,9 +69,10 @@ impl ActionGraph
                 if !live.insert(action.clone()) {
                     continue;
                 }
-                let action = graph.get(action)
+                let (_, inputs) = graph.get(action)
                     .expect("Action graph is missing action");
-                mark_recursively(graph, live, action.dependencies());
+                mark_recursively(graph, live,
+                    inputs.iter().flat_map(Input::dependency));
             }
         }
         mark_recursively(&self.actions, &mut live, self.artifacts.iter());
@@ -71,11 +95,11 @@ impl fmt::Display for ActionGraph
         write!(f, "node [fontname = {FONTNAME}, shape = box, style = filled];")?;
         write!(f, "edge [fontname = {FONTNAME}];")?;
 
-        for (label, action) in &self.actions {
+        for (label, (action, inputs)) in &self.actions {
             let color = if action.is_lint_action() { COLOR_LINT }
                         else { COLOR_ACTION };
             write!(f, "\"{label}\" [color = \"{color}\"];")?;
-            for dependency in action.dependencies() {
+            for dependency in inputs.iter().flat_map(Input::dependency) {
                 write!(f,
                     "\"{}\" -> \"{}\" [label = {}];",
                     dependency.action, label, dependency.output)?;

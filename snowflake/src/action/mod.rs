@@ -3,15 +3,9 @@
 pub use self::graph::*;
 
 use {
-    crate::{basename::Basename, hash::{Blake3, Hash}, label::ActionOutputLabel},
+    crate::{basename::Basename, hash::{Blake3, Hash}},
     regex::bytes::Regex,
-    std::{
-        collections::BTreeMap,
-        ffi::CString,
-        path::PathBuf,
-        sync::Arc,
-        time::Duration,
-    },
+    std::{ffi::CString, path::PathBuf, sync::Arc, time::Duration},
 };
 
 pub mod perform;
@@ -32,9 +26,7 @@ pub enum Action
     },
 
     RunCommand{
-        // Using a B-tree ensures a stable ordering,
-        // which is important for the configuration hash.
-        inputs: BTreeMap<Arc<Basename>, Input>,
+        inputs: Vec<Arc<Basename>>,
         outputs: Vec<Arc<Basename>>,
         program: PathBuf,
         arguments: Vec<CString>,
@@ -44,24 +36,9 @@ pub enum Action
     },
 }
 
-/// Any type of input.
-pub enum Input
-{
-    /// Dependency.
-    Dependency(ActionOutputLabel),
-
-    /// Static file.
-    ///
-    /// The path is interpreted to be relative to the source root.
-    StaticFile(PathBuf),
-}
-
 impl Action
 {
     /// Compute the hash of the action.
-    ///
-    /// The hashes of the inputs must be given in
-    /// the same order as [`inputs`][`Self::inputs`].
     pub fn hash<I>(&self, input_hashes: &[Hash]) -> Hash
     {
         // NOTE: See the manual chapter on avoiding hash collisions.
@@ -93,7 +70,7 @@ impl Action
                 h.put_u8(ACTION_TYPE_RUN_COMMAND);
 
                 h.put_usize(inputs.len());
-                for (basename, hash) in inputs.keys().zip(input_hashes) {
+                for (basename, hash) in inputs.iter().zip(input_hashes) {
                     h.put_basename(basename);
                     h.put_hash(*hash);
                 }
@@ -118,31 +95,14 @@ impl Action
         h.finalize()
     }
 
-    /// The inputs of the action.
-    ///
-    /// The order in which the inputs are yold by the iterator
-    /// corresponds to the order in which they are expected
-    /// to be passed to [`hash`][`Self::hash`],
-    /// [`perform`][`perform::perform`], and other places.
-    pub fn inputs(&self) -> impl Iterator<Item=&Input>
+    /// The number of inputs to this action.
+    pub fn inputs(&self) -> usize
     {
-        static EMPTY: BTreeMap<Arc<Basename>, Input> = BTreeMap::new();
         match self {
-            Self::CreateSymbolicLink{..} => EMPTY.values(),
-            Self::WriteRegularFile{..}   => EMPTY.values(),
-            Self::RunCommand{inputs, ..} => inputs.values()
+            Self::CreateSymbolicLink{..} => 0,
+            Self::WriteRegularFile{..}   => 0,
+            Self::RunCommand{inputs, ..} => inputs.len(),
         }
-    }
-
-    /// The dependencies of the action.
-    pub fn dependencies(&self) -> impl Iterator<Item=&ActionOutputLabel>
-    {
-        self.inputs().filter_map(|i| {
-            match i {
-                Input::Dependency(d) => Some(d),
-                Input::StaticFile(..) => None,
-            }
-        })
     }
 
     /// The number of outputs of this action.
