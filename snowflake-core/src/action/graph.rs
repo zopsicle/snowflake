@@ -17,7 +17,7 @@ pub struct ActionGraph
     pub artifacts: HashSet<ActionOutputLabel>,
 }
 
-/// Any type of input.
+/// Concrete input to an action.
 pub enum Input
 {
     /// Dependency.
@@ -25,7 +25,8 @@ pub enum Input
 
     /// Static file.
     ///
-    /// The path is interpreted to be relative to the source root.
+    /// The path is interpreted to be relative to
+    /// the [source root](`super::Perform::source_root`).
     StaticFile(PathBuf),
 }
 

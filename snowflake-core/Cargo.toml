@@ -1,0 +1,19 @@
+[package]
+name = "snowflake-core"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies.anyhow]
+version = "^1.0.57"
+
+[dependencies.bitflags]
+version = "^1.3.2"
+
+[dependencies.os-ext]
+path = "../common/os-ext"
+
+[dependencies.snowflake-util]
+path = "../snowflake-util"
+
+[dependencies.thiserror]
+version = "^1.0.31"

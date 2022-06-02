@@ -115,12 +115,23 @@ name = "snowflake"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "bitflags",
  "libc",
  "os-ext",
  "regex",
  "scope-exit",
  "sekka",
+ "snowflake-core",
+ "snowflake-util",
+ "thiserror",
+]
+
+[[package]]
+name = "snowflake-core"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bitflags",
+ "os-ext",
  "snowflake-util",
  "thiserror",
 ]

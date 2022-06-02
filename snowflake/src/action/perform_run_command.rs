@@ -1,5 +1,5 @@
 use {
-    super::{Error, Perform, RunCommand, Summary},
+    super::RunCommand,
     anyhow::Context,
     os_ext::{
         AT_SYMLINK_NOFOLLOW,
@@ -11,6 +11,7 @@ use {
     },
     regex::bytes::Regex,
     scope_exit::ScopeExit,
+    snowflake_core::action::{Error, Perform, Summary},
     snowflake_util::basename::Basename,
     std::{
         borrow::Cow,
