@@ -1,6 +1,6 @@
 use {
     crate::basename::Basename,
-    super::{super::Action, Error, Perform, Summary},
+    super::{Error, Perform, RunCommand, Summary},
     anyhow::Context,
     os_ext::{
         AT_SYMLINK_NOFOLLOW,
@@ -34,15 +34,14 @@ use {
 
 pub fn perform_run_command(
     perform: &Perform,
-    action: &Action,
+    action: &RunCommand,
     input_paths: &[PathBuf],
 ) -> Result<Summary, Error>
 {
     // Unpack the arguments into convenient variables.
     let Perform{build_log, source_root, scratch} = perform;
-    let Action::RunCommand{inputs, outputs, program, arguments,
-                           environment, timeout, warnings} = action
-        else { panic!() };
+    let RunCommand{inputs, outputs, program, arguments,
+                   environment, timeout, warnings} = action;
 
     // Mounting must happen in the child process,
     // so we collect all the mount calls in here.
@@ -622,7 +621,7 @@ mod tests
     /// return the result and the build log file.
     fn call_perform_run_command(
         source_root: BorrowedFd,
-        action: &Action,
+        action: &RunCommand,
         input_paths: &[PathBuf],
     ) -> (Result<Summary, Error>, File)
     {
@@ -664,7 +663,7 @@ mod tests
             .map(|i| i.as_path().into())
             .collect();
 
-        let action = &Action::RunCommand{
+        let action = RunCommand{
             inputs,
             outputs: vec![],
             program: "/bin/sh".into(),
@@ -702,7 +701,7 @@ mod tests
     #[test]
     fn pid_1()
     {
-        let action = Action::RunCommand{
+        let action = RunCommand{
             inputs: vec![],
             outputs: vec![],
             program: "/bin/sh".into(),
@@ -728,7 +727,7 @@ mod tests
     fn timeout()
     {
         let coreutils = env!("SNOWFLAKE_COREUTILS");
-        let action = Action::RunCommand{
+        let action = RunCommand{
             inputs: vec![],
             outputs: vec![],
             program: Path::new(&coreutils).join("bin/sleep"),
@@ -747,7 +746,7 @@ mod tests
     fn unsuccessful_termination()
     {
         let coreutils = env!("SNOWFLAKE_COREUTILS");
-        let action = Action::RunCommand{
+        let action = RunCommand{
             inputs: vec![],
             outputs: vec![],
             program: Path::new(&coreutils).join("bin/false"),
@@ -765,7 +764,7 @@ mod tests
     #[test]
     fn warnings()
     {
-        let action = Action::RunCommand{
+        let action = RunCommand{
             inputs: vec![],
             outputs: vec![],
             program: "/bin/sh".into(),

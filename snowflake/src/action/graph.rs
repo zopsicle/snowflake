@@ -1,6 +1,6 @@
 use {
     crate::label::{ActionLabel, ActionOutputLabel},
-    super::Action,
+    super::{Action, ActionExt},
     std::{collections::{HashMap, HashSet}, fmt, path::PathBuf},
 };
 
@@ -11,7 +11,7 @@ use {
 pub struct ActionGraph
 {
     /// Actions to perform, in the order implied by their dependency graph.
-    pub actions: HashMap<ActionLabel, (Action, Vec<Input>)>,
+    pub actions: HashMap<ActionLabel, (Box<dyn Action>, Vec<Input>)>,
 
     /// Artifacts of the requested build.
     pub artifacts: HashSet<ActionOutputLabel>,
@@ -54,13 +54,13 @@ impl ActionGraph
         // Lint actions are always considered live.
         live.extend(
             self.actions.iter()
-            .filter(|a| a.1.0.is_lint_action())
+            .filter(|a| a.1.0.is_lint())
             .map(|a| a.0.clone())
         );
 
         // Use mark-and-sweep to find other live actions.
         fn mark_recursively<'a>(
-            graph: &HashMap<ActionLabel, (Action, Vec<Input>)>,
+            graph: &HashMap<ActionLabel, (Box<dyn Action>, Vec<Input>)>,
             live: &mut HashSet<ActionLabel>,
             outputs: impl Iterator<Item=&'a ActionOutputLabel>,
         )
@@ -96,8 +96,7 @@ impl fmt::Display for ActionGraph
         write!(f, "edge [fontname = {FONTNAME}];")?;
 
         for (label, (action, inputs)) in &self.actions {
-            let color = if action.is_lint_action() { COLOR_LINT }
-                        else { COLOR_ACTION };
+            let color = if action.is_lint() { COLOR_LINT } else { COLOR_ACTION };
             write!(f, "\"{label}\" [color = \"{color}\"];")?;
             for dependency in inputs.iter().flat_map(Input::dependency) {
                 write!(f,

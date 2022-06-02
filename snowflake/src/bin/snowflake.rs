@@ -1,3 +1,5 @@
+#![feature(type_ascription)]
+
 use {
     regex::bytes::Regex,
     sekka::Sekka,
@@ -33,17 +35,17 @@ fn main()
             (
                 asx0,
                 (
-                    Action::WriteRegularFile{
+                    Box::new(WriteRegularFile{
                         content: "hello".into(),
                         executable: false,
-                    },
+                    }) as Box<dyn Action>,
                     vec![],
                 ),
             ),
             (
                 asx1,
                 (
-                    Action::RunCommand{
+                    Box::new(RunCommand{
                         inputs: vec![
                             Arc::from(Basename::new("a").unwrap()),
                             Arc::from(Basename::new("b").unwrap()),
@@ -54,7 +56,7 @@ fn main()
                         environment: vec![],
                         timeout: Duration::from_secs(60),
                         warnings: None,
-                    },
+                    }) as Box<dyn Action>,
                     vec![
                         Input::Dependency(osx00),
                         Input::Dependency(osx01.clone()),
@@ -64,7 +66,7 @@ fn main()
             (
                 asy0,
                 (
-                    Action::RunCommand{
+                    Box::new(RunCommand{
                         inputs: vec![
                             Arc::from(Basename::new("c").unwrap()),
                             Arc::from(Basename::new("d").unwrap()),
@@ -75,7 +77,7 @@ fn main()
                         environment: vec![],
                         timeout: Duration::from_secs(60),
                         warnings: None,
-                    },
+                    }) as Box<dyn Action>,
                     vec![
                         Input::Dependency(osx01),
                         Input::Dependency(osx10.clone()),
@@ -85,7 +87,7 @@ fn main()
             (
                 asy1,
                 (
-                    Action::RunCommand{
+                    Box::new(RunCommand{
                         inputs: vec![
                             Arc::from(Basename::new("e").unwrap()),
                         ],
@@ -95,7 +97,7 @@ fn main()
                         environment: vec![],
                         timeout: Duration::from_secs(60),
                         warnings: Some(Regex::new("^warning:").unwrap()),
-                    },
+                    }) as Box<dyn Action>,
                     vec![
                         Input::Dependency(osx10.clone()),
                     ],
@@ -104,7 +106,7 @@ fn main()
             (
                 asz0,
                 (
-                    Action::RunCommand{
+                    Box::new(RunCommand{
                         inputs: vec![
                             Arc::from(Basename::new("f").unwrap()),
                         ],
@@ -114,7 +116,7 @@ fn main()
                         environment: vec![],
                         timeout: Duration::from_secs(60),
                         warnings: Some(Regex::new("").unwrap()),
-                    },
+                    }) as Box<dyn Action>,
                     vec![
                         Input::Dependency(osx10.clone()),
                     ],
