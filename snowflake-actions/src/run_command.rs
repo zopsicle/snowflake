@@ -24,6 +24,7 @@ use {
         fs::File,
         io::{self, BufRead, BufReader, Read, Seek},
         mem::{forget, size_of_val, zeroed},
+        ops::Deref,
         os::unix::{
             ffi::OsStringExt,
             io::{AsRawFd, BorrowedFd, FromRawFd, OwnedFd},
@@ -33,7 +34,6 @@ use {
         path::{Path, PathBuf},
         process::ExitStatus,
         ptr::{addr_of, addr_of_mut, null, null_mut},
-        sync::Arc,
         time::Duration,
     },
 };
@@ -42,10 +42,10 @@ use {
 pub struct RunCommand
 {
     /// What to call the inputs in the command's working directory.
-    pub inputs: Vec<Arc<Basename>>,
+    pub inputs: Vec<Basename<OsString>>,
 
     /// What the outputs are called in the command's working directory.
-    pub outputs: Vec<Arc<Basename>>,
+    pub outputs: Vec<Basename<OsString>>,
 
     /// Absolute path to the program to run.
     pub program: PathBuf,
@@ -107,11 +107,11 @@ impl Action for RunCommand
 
         h.put_usize(inputs.len());
         for (basename, hash) in inputs.iter().zip(input_hashes) {
-            h.put_basename(basename);
+            h.put_os_str(basename);
             h.put_hash(*hash);
         }
 
-        h.put_slice(outputs, |h, o| h.put_basename(o));
+        h.put_slice(outputs, |h, o| h.put_os_str(o));
         h.put_path(program);
         h.put_slice(arguments, |h, a| h.put_cstr(a));
         h.put_slice(environment, |h, e| h.put_cstr(e));
@@ -308,7 +308,7 @@ fn mount_nix_store(mounts: &mut Vec<Mount>)
 fn mount_inputs(
     source_root: BorrowedFd,
     scratch: BorrowedFd,
-    inputs: &[Arc<Basename>],
+    inputs: &[Basename<OsString>],
     input_paths: &[PathBuf],
     mounts: &mut Vec<Mount>,
 ) -> Result<(), Error>
@@ -336,7 +336,7 @@ fn mount_inputs(
 fn mount_input(
     source_root_path: &Path,
     scratch: BorrowedFd,
-    input_basename: &Basename,
+    input_basename: &Basename<OsString>,
     input_path: &Path,
     mounts: &mut Vec<Mount>,
 ) -> anyhow::Result<()>
@@ -345,7 +345,7 @@ fn mount_input(
     let input_path = source_root_path.join(input_path);
 
     // Make the target relative to the /build directory.
-    let target = Path::new("build").join(input_basename);
+    let target = Path::new("build").join(input_basename.deref());
 
     // How to mount the input depends on what type of file it is.
     let statbuf = fstatat(None, &input_path, AT_SYMLINK_NOFOLLOW)               .with_context(|| "Find file type of input")?;
@@ -377,7 +377,7 @@ fn mount_input(
 }
 
 /// Compute the scratch-relative path at which each output is created.
-fn output_paths(outputs: &[Arc<Basename>]) -> Vec<PathBuf>
+fn output_paths(outputs: &[Basename<OsString>]) -> Vec<PathBuf>
 {
     let build_dir = Path::new("build");
     outputs.iter()
@@ -711,7 +711,7 @@ mod tests
     use {
         super::*,
         os_ext::{O_DIRECTORY, O_PATH, O_RDWR, O_TMPFILE, mkdtemp, open},
-        std::{assert_matches::assert_matches, io::Seek, os::unix::io::AsFd},
+        std::{assert_matches::assert_matches, io::Seek, ops::Deref, os::unix::io::AsFd},
     };
 
     /// Call the perform_run_command function and
@@ -745,10 +745,10 @@ mod tests
     {
         let coreutils = env!("SNOWFLAKE_COREUTILS");
 
-        let inputs: Vec<_> =
+        let inputs: Vec<Basename<OsString>> =
             ["regular.txt", "directory", "symlink.lnk", "broken.lnk"]
             .into_iter()
-            .map(|i| Arc::<Basename>::from(Basename::new(i).unwrap()))
+            .map(|i| Basename::new(i.into()).unwrap())
             .collect();
 
         let source_root =
@@ -757,7 +757,7 @@ mod tests
 
         let input_paths: Vec<PathBuf> =
             inputs.iter()
-            .map(|i| i.as_path().into())
+            .map(|i| i.deref().into())
             .collect();
 
         let action = RunCommand{

@@ -6,7 +6,7 @@ use {
     snowflake_actions::*,
     snowflake_core::{action::*, label::*},
     snowflake_util::basename::*,
-    std::{time::Duration, sync::Arc},
+    std::time::Duration,
 };
 
 fn main()
@@ -49,10 +49,10 @@ fn main()
                 (
                     Box::new(RunCommand{
                         inputs: vec![
-                            Arc::from(Basename::new("a").unwrap()),
-                            Arc::from(Basename::new("b").unwrap()),
+                            Basename::new("a".into()).unwrap(),
+                            Basename::new("b".into()).unwrap(),
                         ],
-                        outputs: vec![Arc::from(Basename::new("o").unwrap())],
+                        outputs: vec![Basename::new("o".into()).unwrap()],
                         program: "/run/current-system/sw/bin/sleep".into(),
                         arguments: vec![],
                         environment: vec![],
@@ -70,10 +70,10 @@ fn main()
                 (
                     Box::new(RunCommand{
                         inputs: vec![
-                            Arc::from(Basename::new("c").unwrap()),
-                            Arc::from(Basename::new("d").unwrap()),
+                            Basename::new("c".into()).unwrap(),
+                            Basename::new("d".into()).unwrap(),
                         ],
-                        outputs: vec![Arc::from(Basename::new("o").unwrap())],
+                        outputs: vec![Basename::new("o".into()).unwrap()],
                         program: "/run/current-system/sw/bin/sleep".into(),
                         arguments: vec![],
                         environment: vec![],
@@ -91,9 +91,9 @@ fn main()
                 (
                     Box::new(RunCommand{
                         inputs: vec![
-                            Arc::from(Basename::new("e").unwrap()),
+                            Basename::new("e".into()).unwrap(),
                         ],
-                        outputs: vec![Arc::from(Basename::new("o").unwrap())],
+                        outputs: vec![Basename::new("o".into()).unwrap()],
                         program: "/run/current-system/sw/bin/sleep".into(),
                         arguments: vec![],
                         environment: vec![],
@@ -110,7 +110,7 @@ fn main()
                 (
                     Box::new(RunCommand{
                         inputs: vec![
-                            Arc::from(Basename::new("f").unwrap()),
+                            Basename::new("f".into()).unwrap(),
                         ],
                         outputs: [].into_iter().collect(),
                         program: "/run/current-system/sw/bin/sleep".into(),

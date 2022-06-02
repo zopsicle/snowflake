@@ -1,5 +1,4 @@
 use {
-    crate::basename::Basename,
     super::{Blake3, Hash},
     std::{ffi::{CStr, OsStr}, os::unix::ffi::OsStrExt, path::Path},
 };
@@ -66,11 +65,6 @@ impl Blake3
     pub fn put_path(&mut self, value: &Path) -> &mut Self
     {
         self.put_os_str(value.as_os_str())
-    }
-
-    pub fn put_basename(&mut self, value: &Basename) -> &mut Self
-    {
-        self.update(value.as_bytes())
     }
 
     pub fn put_slice<F, T>(&mut self, value: &[T], mut f: F) -> &mut Self

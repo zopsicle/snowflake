@@ -1,4 +1,7 @@
-use {super::*, std::{fmt::{Display, Formatter, Result}}};
+use {
+    super::*,
+    std::{fmt::{Display, Formatter, Result}, os::unix::ffi::OsStrExt},
+};
 
 impl Display for PackageLabel
 {

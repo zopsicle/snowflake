@@ -1,6 +1,6 @@
 //! Identifying elements of a build.
 
-use {snowflake_util::basename::Basename, std::sync::Arc};
+use {snowflake_util::basename::Basename, std::{ffi::OsStr, sync::Arc}};
 
 mod display;
 
@@ -9,7 +9,7 @@ mod display;
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct PackageLabel
 {
-    pub segments: Arc<[Arc<Basename>]>,
+    pub segments: Arc<[Basename<Arc<OsStr>>]>,
 }
 
 /// Identifies a rule.
@@ -36,7 +36,7 @@ pub struct ActionLabel
 pub struct RuleOutputLabel
 {
     pub rule: RuleLabel,
-    pub output: Arc<Basename>,
+    pub output: Basename<Arc<OsStr>>,
 }
 
 /// Identifies an output of an action.
