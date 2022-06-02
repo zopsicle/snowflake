@@ -27,7 +27,7 @@ pub trait Action
     /// Perform the action.
     ///
     /// This method takes paths to inputs and produces outputs.
-    /// As a side-effect it produces a build log (see [`Summary`]).
+    /// As a side-effect it writes to the [build log][`Perform::build_log`].
     /// It does not look up inputs in the cache or move outputs to the cache;
     /// these tasks are the responsibility of the caller.
     ///
@@ -82,8 +82,10 @@ pub struct Summary
 {
     /// Pathnames of outputs produced by the action.
     ///
-    /// The pathnames are relative to the scratch directory.
-    /// The number of outputs equals [`Action::outputs`].
+    /// The pathnames are relative to the [scratch directory].
+    /// The number of outputs must equal [`Action::outputs`].
+    ///
+    /// [scratch directory]: `Perform::scratch`
     pub output_paths: Vec<PathBuf>,
 
     /// Whether warnings were emitted by the action.
