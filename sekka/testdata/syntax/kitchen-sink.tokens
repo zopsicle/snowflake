@@ -2,14 +2,6 @@ Ok(
     [
         Lexeme {
             location: Location(0),
-            token: InitKeyword,
-        },
-        Lexeme {
-            location: Location(5),
-            token: LeftCurlyBracket,
-        },
-        Lexeme {
-            location: Location(11),
             token: StringLiteral(
                 [
                     97,
@@ -17,11 +9,11 @@ Ok(
             ),
         },
         Lexeme {
-            location: Location(15),
-            token: Tilde,
+            location: Location(4),
+            token: PlusSign,
         },
         Lexeme {
-            location: Location(17),
+            location: Location(6),
             token: StringLiteral(
                 [
                     98,
@@ -29,86 +21,16 @@ Ok(
             ),
         },
         Lexeme {
-            location: Location(21),
+            location: Location(10),
             token: Tilde,
         },
         Lexeme {
-            location: Location(23),
+            location: Location(12),
             token: StringLiteral(
                 [
                     99,
                 ],
             ),
-        },
-        Lexeme {
-            location: Location(26),
-            token: Semicolon,
-        },
-        Lexeme {
-            location: Location(32),
-            token: StringLiteral(
-                [
-                    100,
-                ],
-            ),
-        },
-        Lexeme {
-            location: Location(35),
-            token: Semicolon,
-        },
-        Lexeme {
-            location: Location(37),
-            token: RightCurlyBracket,
-        },
-        Lexeme {
-            location: Location(40),
-            token: SubKeyword,
-        },
-        Lexeme {
-            location: Location(44),
-            token: Identifier(
-                "foo",
-            ),
-        },
-        Lexeme {
-            location: Location(47),
-            token: LeftParenthesis,
-        },
-        Lexeme {
-            location: Location(48),
-            token: RightParenthesis,
-        },
-        Lexeme {
-            location: Location(50),
-            token: LeftCurlyBracket,
-        },
-        Lexeme {
-            location: Location(56),
-            token: StringLiteral(
-                [
-                    97,
-                ],
-            ),
-        },
-        Lexeme {
-            location: Location(59),
-            token: Semicolon,
-        },
-        Lexeme {
-            location: Location(65),
-            token: StringLiteral(
-                [
-                    98,
-                ],
-            ),
-        },
-        Lexeme {
-            location: Location(68),
-            token: Semicolon,
-        },
-        Lexeme {
-            location: Location(70),
-            token: RightCurlyBracket,
         },
     ],
 )

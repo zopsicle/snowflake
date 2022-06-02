@@ -110,7 +110,6 @@ dependencies = [
  "os-ext",
  "regex",
  "scope-exit",
- "sekka",
  "snowflake-actions",
  "snowflake-core",
  "snowflake-util",

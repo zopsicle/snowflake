@@ -9,7 +9,7 @@ pub mod parse;
 mod tests
 {
     use {
-        super::{lex::{self, Lexeme, Lexer}, parse::{Arenas, parse_unit}},
+        super::{lex::{self, Lexeme, Lexer}, parse::{Arenas, parse_expression}},
         std::{ffi::OsStr, fs::{read_dir, read_to_string}, path::PathBuf},
     };
 
@@ -60,7 +60,7 @@ mod tests
 
                 // Parse the contents of the .ska file.
                 let mut lexemes = Lexer::new(&ska).peekable();
-                let actual_ast = parse_unit(arenas, &mut lexemes);
+                let actual_ast = parse_expression(arenas, &mut lexemes);
 
                 // Compare the AST with the expected AST.
                 let actual_ast = format!("{:#?}", actual_ast);

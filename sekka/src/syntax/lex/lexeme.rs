@@ -16,13 +16,9 @@ pub enum Token
     /** `(` */ LeftParenthesis,
     /** `)` */ RightParenthesis,
     /** `+` */ PlusSign,
-    /** `;` */ Semicolon,
-    /** `{` */ LeftCurlyBracket,
-    /** `}` */ RightCurlyBracket,
     /** `~` */ Tilde,
 
-    /** `INIT` */ InitKeyword,
-    /** `sub`  */ SubKeyword,
+    /** `fun`  */ FunKeyword,
 
     /// Identifier.
     Identifier(Arc<str>),
@@ -42,12 +38,8 @@ impl fmt::Display for Token
             Self::LeftParenthesis   => write!(f, "`(`"),
             Self::RightParenthesis  => write!(f, "`)`"),
             Self::PlusSign          => write!(f, "`+`"),
-            Self::Semicolon         => write!(f, "`;`"),
-            Self::LeftCurlyBracket  => write!(f, "`{{`"),
-            Self::RightCurlyBracket => write!(f, "`}}`"),
             Self::Tilde             => write!(f, "`~`"),
-            Self::InitKeyword       => write!(f, "`INIT`"),
-            Self::SubKeyword        => write!(f, "`sub`"),
+            Self::FunKeyword        => write!(f, "`fun`"),
             Self::Identifier(..)    => write!(f, "identifier"),
             Self::StringLiteral(..) => write!(f, "string literal"),
         }

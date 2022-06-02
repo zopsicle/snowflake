@@ -14,9 +14,6 @@ path = "../common/os-ext"
 [dependencies.scope-exit]
 path = "../common/scope-exit"
 
-[dependencies.sekka]
-path = "../sekka"
-
 [dependencies.snowflake-actions]
 path = "../snowflake-actions"
 

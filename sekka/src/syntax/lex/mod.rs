@@ -43,9 +43,7 @@ impl<'a> Lexer<'a>
         match c {
             '('  => Ok(Token::LeftParenthesis),
             ')'  => Ok(Token::RightParenthesis),
-            ';'  => Ok(Token::Semicolon),
-            '{'  => Ok(Token::LeftCurlyBracket),
-            '}'  => Ok(Token::RightCurlyBracket),
+            '+'  => Ok(Token::PlusSign),
             '~'  => Ok(Token::Tilde),
             c if Self::is_identifier_start(c) =>
                 Ok(self.read_identifier_or_keyword(c)),
@@ -58,9 +56,8 @@ impl<'a> Lexer<'a>
     {
         let identifier = self.read_identifier(c);
         match identifier.as_ref() {
-            "INIT" => Token::InitKeyword,
-            "sub"  => Token::SubKeyword,
-            _      => Token::Identifier(identifier.into()),
+            "fun" => Token::FunKeyword,
+            _     => Token::Identifier(identifier.into()),
         }
     }
 

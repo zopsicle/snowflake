@@ -5,7 +5,6 @@ use {super::super::ast::*, typed_arena::Arena};
 pub struct Arenas<'a>
 {
     pub expressions: &'a Arena<Expression<'a>>,
-    pub statements: &'a Arena<Statement<'a>>,
 }
 
 impl<'a> Arenas<'a>
@@ -14,8 +13,7 @@ impl<'a> Arenas<'a>
     pub fn with<R>(f: impl FnOnce(&Arenas) -> R) -> R
     {
         let expressions = &Arena::new();
-        let statements = &Arena::new();
-        let arenas = Arenas{expressions, statements};
+        let arenas = Arenas{expressions};
         f(&arenas)
     }
 
@@ -47,13 +45,5 @@ impl<'a> ArenaNode<'a> for Expression<'a>
     fn arena(arenas: &Arenas<'a>) -> &'a Arena<Self>
     {
         arenas.expressions
-    }
-}
-
-impl<'a> ArenaNode<'a> for Statement<'a>
-{
-    fn arena(arenas: &Arenas<'a>) -> &'a Arena<Self>
-    {
-        arenas.statements
     }
 }
