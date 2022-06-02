@@ -1,4 +1,8 @@
 //! Snowflake-specific utility items.
+//!
+//! The utilities in this crate are not general-purpose;
+//! they have quirks specific to the Snowflake build system.
+//! It is advised to use these only when extending or embedding Snowflake.
 
 #![doc(html_logo_url = "/snowflake-manual/_static/logo.svg")]
 #![feature(io_safety)]
