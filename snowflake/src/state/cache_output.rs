@@ -1,5 +1,4 @@
 use {
-    crate::hash::{Hash, hash_file_at_with},
     super::{State, ok_if_already_exists},
     bitflags::bitflags,
     os_ext::{
@@ -7,6 +6,7 @@ use {
         RENAME_NOREPLACE,
         renameat2, stat,
     },
+    snowflake_util::hash::{Hash, hash_file_at_with},
     std::{fmt, io, os::unix::io::BorrowedFd, path::Path},
     thiserror::Error,
 };

@@ -3,7 +3,8 @@
 use {
     regex::bytes::Regex,
     sekka::Sekka,
-    snowflake::{action::*, basename::*, label::*},
+    snowflake::{action::*, label::*},
+    snowflake_util::basename::*,
     std::{time::Duration, sync::Arc},
 };
 

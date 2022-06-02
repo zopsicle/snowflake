@@ -16,7 +16,7 @@ mod put;
 /// Displaying a hash produces a lower-case hexadecimal string.
 ///
 /// ```
-/// use snowflake::hash::Blake3;
+/// use snowflake_util::hash::Blake3;
 /// let hash = Blake3::new().update(b"Hello, world!").finalize();
 /// assert_eq!(hash.to_string(), "ede5c0b10f2ec4979c69b52f61e42ff5\
 ///                               b413519ce09be0f14d098dcfe5f6f98d");

@@ -1,5 +1,4 @@
 use {
-    crate::basename::Basename,
     super::{Error, Perform, RunCommand, Summary},
     anyhow::Context,
     os_ext::{
@@ -12,6 +11,7 @@ use {
     },
     regex::bytes::Regex,
     scope_exit::ScopeExit,
+    snowflake_util::basename::Basename,
     std::{
         borrow::Cow,
         ffi::{CStr, CString, NulError, OsString},

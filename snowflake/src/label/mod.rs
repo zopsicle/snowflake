@@ -1,6 +1,6 @@
 //! Identifying elements of a build.
 
-use {crate::basename::Basename, std::sync::Arc};
+use {snowflake_util::basename::Basename, std::sync::Arc};
 
 mod display;
 

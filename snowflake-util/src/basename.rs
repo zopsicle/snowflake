@@ -1,5 +1,7 @@
 //! Basenames of pathnames.
 
+// TODO: Move this to its own crate.
+
 use {
     std::{ffi::OsStr, fmt, os::unix::ffi::OsStrExt, path::Path, sync::Arc},
     thiserror::Error,

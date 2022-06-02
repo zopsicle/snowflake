@@ -3,8 +3,8 @@
 pub use self::cache_output::*;
 
 use {
-    crate::hash::Hash,
     os_ext::{O_DIRECTORY, O_PATH, mkdirat, open, openat},
+    snowflake_util::hash::Hash,
     std::{
         io::{self, ErrorKind::AlreadyExists},
         lazy::SyncOnceCell,

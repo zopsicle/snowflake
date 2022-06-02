@@ -4,4 +4,5 @@ members = [
     "common/scope-exit",
     "sekka",
     "snowflake",
+    "snowflake-util",
 ]

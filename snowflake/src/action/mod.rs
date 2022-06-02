@@ -3,11 +3,11 @@
 pub use self::graph::*;
 
 use {
-    crate::{basename::Basename, hash::{Blake3, Hash}},
     self::perform_run_command::perform_run_command,
     anyhow::Context,
     os_ext::{O_CREAT, O_WRONLY, openat, symlinkat},
     regex::bytes::Regex,
+    snowflake_util::{basename::Basename, hash::{Blake3, Hash}},
     std::{
         ffi::CString,
         fs::File,

@@ -116,12 +116,21 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bitflags",
- "blake3_c_rust_bindings",
  "libc",
  "os-ext",
  "regex",
  "scope-exit",
  "sekka",
+ "snowflake-util",
+ "thiserror",
+]
+
+[[package]]
+name = "snowflake-util"
+version = "0.0.0"
+dependencies = [
+ "blake3_c_rust_bindings",
+ "os-ext",
  "thiserror",
 ]
 
