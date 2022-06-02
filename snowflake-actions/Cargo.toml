@@ -1,5 +1,5 @@
 [package]
-name = "snowflake"
+name = "snowflake-actions"
 version = "0.0.0"
 edition = "2021"
 
@@ -20,12 +20,6 @@ version = "^1.5.6"
 
 [dependencies.scope-exit]
 path = "../common/scope-exit"
-
-[dependencies.sekka]
-path = "../sekka"
-
-[dependencies.snowflake-actions]
-path = "../snowflake-actions"
 
 [dependencies.snowflake-core]
 path = "../snowflake-core"

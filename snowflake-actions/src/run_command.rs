@@ -1,5 +1,4 @@
 use {
-    super::RunCommand,
     anyhow::Context,
     os_ext::{
         AT_SYMLINK_NOFOLLOW,
@@ -11,8 +10,14 @@ use {
     },
     regex::bytes::Regex,
     scope_exit::ScopeExit,
-    snowflake_core::action::{Error, Perform, Summary},
-    snowflake_util::basename::Basename,
+    snowflake_core::action::{
+        Action,
+        Error,
+        Perform,
+        Result as AResult,
+        Summary,
+    },
+    snowflake_util::{basename::Basename, hash::{Blake3, Hash}},
     std::{
         borrow::Cow,
         ffi::{CStr, CString, NulError, OsString},
@@ -33,11 +38,102 @@ use {
     },
 };
 
-pub fn perform_run_command(
+/// Action that runs an arbitrary command in a container.
+pub struct RunCommand
+{
+    /// What to call the inputs in the command's working directory.
+    pub inputs: Vec<Arc<Basename>>,
+
+    /// What the outputs are called in the command's working directory.
+    pub outputs: Vec<Arc<Basename>>,
+
+    /// Absolute path to the program to run.
+    pub program: PathBuf,
+
+    /// Arguments to the program.
+    ///
+    /// This should include the zeroth argument,
+    /// which is normally equal to [`program`][`Self::program`].
+    pub arguments: Vec<CString>,
+
+    /// The environment variables to the program.
+    ///
+    /// This specifies the *exact* environment to the program.
+    /// No extra environment variables are set by the
+    /// [`perform`][`RunCommand::perform`] method.
+    pub environment: Vec<CString>,
+
+    /// How much time the program may spend.
+    ///
+    /// If the program spends more time than this,
+    /// it is killed and the action fails.
+    pub timeout: Duration,
+
+    /// Regular expression that matches warnings in the build log.
+    ///
+    /// If [`None`], no warnings are assumed to have been emitted.
+    pub warnings: Option<Regex>,
+}
+
+impl Action for RunCommand
+{
+    fn inputs(&self) -> usize
+    {
+        self.inputs.len()
+    }
+
+    fn outputs(&self) -> usize
+    {
+        self.outputs.len()
+    }
+
+    fn perform(&self, perform: &Perform, input_paths: &[PathBuf]) -> AResult
+    {
+        perform_run_command(perform, self, input_paths)
+    }
+
+    fn hash(&self, input_hashes: &[Hash]) -> Hash
+    {
+        // NOTE: See the manual chapter on avoiding hash collisions.
+
+        let Self{inputs, outputs, program, arguments,
+                 environment, timeout, warnings} = self;
+
+        debug_assert_eq!(input_hashes.len(), inputs.len());
+
+        let mut h = Blake3::new();
+
+        h.put_str("RunCommand");
+
+        h.put_usize(inputs.len());
+        for (basename, hash) in inputs.iter().zip(input_hashes) {
+            h.put_basename(basename);
+            h.put_hash(*hash);
+        }
+
+        h.put_slice(outputs, |h, o| h.put_basename(o));
+        h.put_path(program);
+        h.put_slice(arguments, |h, a| h.put_cstr(a));
+        h.put_slice(environment, |h, e| h.put_cstr(e));
+
+        // The timeout cannot affect the output of the action,
+        // so there is no need to include it in the hash.
+        let _ = timeout;
+
+        h.put_bool(warnings.is_some());
+        if let Some(warnings) = warnings {
+            h.put_str(warnings.as_str());
+        }
+
+        h.finalize()
+    }
+}
+
+fn perform_run_command(
     perform: &Perform,
     action: &RunCommand,
     input_paths: &[PathBuf],
-) -> Result<Summary, Error>
+) -> AResult
 {
     // Unpack the arguments into convenient variables.
     let Perform{build_log, source_root, scratch} = perform;

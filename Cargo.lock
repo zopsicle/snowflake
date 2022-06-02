@@ -120,9 +120,22 @@ dependencies = [
  "regex",
  "scope-exit",
  "sekka",
+ "snowflake-actions",
  "snowflake-core",
  "snowflake-util",
- "thiserror",
+]
+
+[[package]]
+name = "snowflake-actions"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "libc",
+ "os-ext",
+ "regex",
+ "scope-exit",
+ "snowflake-core",
+ "snowflake-util",
 ]
 
 [[package]]

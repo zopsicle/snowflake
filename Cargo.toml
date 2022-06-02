@@ -4,6 +4,7 @@ members = [
     "common/scope-exit",
     "sekka",
     "snowflake",
+    "snowflake-actions",
     "snowflake-core",
     "snowflake-util",
 ]
