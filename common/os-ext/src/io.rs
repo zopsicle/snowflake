@@ -1,3 +1,5 @@
+//! Working with file descriptors.
+
 use std::{
     io,
     mem::ManuallyDrop,
