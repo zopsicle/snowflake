@@ -31,12 +31,14 @@ pub trait Action
     /// It does not look up inputs in the cache or move outputs to the cache;
     /// these tasks are the responsibility of the caller.
     ///
-    /// The number of input paths must equal [`inputs`][`Self::inputs`].
+    /// The number of input paths must equal [`inputs`][`Self::inputs`]
+    /// and their order must match that of the inputs in [`ActionGraph`].
     fn perform(&self, perform: &Perform, input_paths: &[PathBuf]) -> Result;
 
     /// Compute the hash of the action.
     ///
-    /// The number of input hashes must equal [`inputs`][`Self::inputs`].
+    /// The number of input hashes must equal [`inputs`][`Self::inputs`]
+    /// and their order must match that of the inputs in [`ActionGraph`].
     fn hash(&self, input_hashes: &[Hash]) -> Hash;
 }
 
@@ -83,9 +85,11 @@ pub struct Summary
     /// Pathnames of outputs produced by the action.
     ///
     /// The pathnames are relative to the [scratch directory].
-    /// The number of outputs must equal [`Action::outputs`].
+    /// The number of outputs must equal [`Action::outputs`]
+    /// and their indices must match those in [output labels].
     ///
     /// [scratch directory]: `Perform::scratch`
+    /// [output labels]: `crate::label::ActionOutputLabel`
     pub output_paths: Vec<PathBuf>,
 
     /// Whether warnings were emitted by the action.
