@@ -2,7 +2,6 @@
 
 use {
     regex::bytes::Regex,
-    sekka::Sekka,
     snowflake_actions::*,
     snowflake_core::{action::*, label::*},
     snowflake_util::basename::*,
@@ -11,10 +10,6 @@ use {
 
 fn main()
 {
-    let source = "INIT { } INIT { } sub f() { 'a' ~ 'b' ~ 'c'; } sub g() { }";
-    let mut sekka = Sekka::new();
-    sekka.compile("".into(), source).unwrap();
-
     let ps = PackageLabel{segments: vec![].into()};
 
     let rsx = RuleLabel{package: ps.clone(), rule: "x".into()};
