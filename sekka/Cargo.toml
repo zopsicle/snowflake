@@ -6,5 +6,7 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
+iced-x86.workspace = true
+libc.workspace = true
 thiserror.workspace = true
 typed-arena.workspace = true
