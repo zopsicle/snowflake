@@ -45,6 +45,7 @@ pub use {
 };
 
 pub mod cstr;
+pub mod io;
 
 mod dirent_;
 mod fcntl;

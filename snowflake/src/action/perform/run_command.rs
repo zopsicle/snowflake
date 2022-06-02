@@ -6,16 +6,18 @@ use {
         AT_SYMLINK_NOFOLLOW,
         S_IFDIR, S_IFLNK, S_IFMT, S_IFREG,
         cstr, cstr::IntoCStr, cstr_cow,
+        io::BorrowedFdExt,
         fstatat, getgid, getuid, mkdirat, mknodat,
         pipe2, readlink, readlinkat, symlinkat,
     },
+    regex::bytes::Regex,
     scope_exit::ScopeExit,
     std::{
         borrow::Cow,
         collections::BTreeMap,
         ffi::{CStr, CString, NulError, OsString},
         fs::File,
-        io::{self, Read},
+        io::{self, BufRead, BufReader, Read, Seek},
         mem::{forget, size_of_val, zeroed},
         os::unix::{
             ffi::OsStringExt,
@@ -61,9 +63,10 @@ pub fn perform_run_command(
                 arguments, environment, *timeout,
                 mounts)?;
     let output_paths = output_paths(outputs);
+    let warnings = find_warnings(*build_log, warnings.as_ref())?;
 
     // Summarize the result.
-    Ok(Summary{output_paths, warnings: false})
+    Ok(Summary{output_paths, warnings})
 }
 
 /// Arguments to mount.
@@ -285,6 +288,35 @@ fn output_paths(outputs: &[Arc<Basename>]) -> Vec<PathBuf>
     outputs.iter()
         .map(|b| build_dir.join(&**b))
         .collect()
+}
+
+/// Look for warnings in the build log.
+fn find_warnings(build_log: BorrowedFd, warnings: Option<&Regex>)
+    -> Result<bool, Error>
+{
+    // If no warnings pattern was given,
+    // we assume there were no warnings.
+    let Some(warnings) = warnings
+        else { return Ok(false) };
+
+    // Open the build log file and rewind it.
+    let build_log = build_log.try_to_owned()                                    .with_context(|| "Duplicate build log file descriptor")?;
+    let mut build_log = File::from(build_log);
+    build_log.rewind()                                                          .with_context(|| "Rewind build log")?;
+
+    // Read lines from the build log file
+    // and match them against the pattern.
+    let mut build_log = BufReader::new(build_log);
+    let mut line = Vec::new();
+    loop {
+        // BufRead::lines is inadequate as build logs may be invalid UTF-8.
+        // That's also why we use regex::bytes::Regex instead of regex::Regex.
+        build_log.read_until(b'\n', &mut line)                                  .with_context(|| "Read line from build log")?;
+        if line.is_empty()          { break Ok(false); }
+        if line.ends_with(b"\n")    { line.pop();      }
+        if warnings.is_match(&line) { break Ok(true);  }
+        line.clear();
+    }
 }
 
 /// Obtain the path to the file referred to by a file descriptor.
@@ -665,7 +697,7 @@ mod tests
                 &input_paths,
             );
 
-        assert_matches!(result, Ok(_));
+        assert_matches!(result, Ok(Summary{warnings: false, ..}));
         let mut buf = String::new();
         build_log.read_to_string(&mut buf).unwrap();
         assert_eq!(buf, "Hello, world!\nbar.txt\nfoo.txt\n\
@@ -691,7 +723,7 @@ mod tests
         let source_root = open("/dev/null", O_PATH, 0).unwrap();
         let (result, mut build_log) =
             call_perform_run_command(source_root.as_fd(), &action, &[]);
-        assert_matches!(result, Ok(_));
+        assert_matches!(result, Ok(Summary{warnings: false, ..}));
         let mut buf = Vec::new();
         build_log.read_to_end(&mut buf).unwrap();
         assert_eq!(buf, b"1\n");
@@ -733,5 +765,27 @@ mod tests
         let (result, _) =
             call_perform_run_command(source_root.as_fd(), &action, &[]);
         assert_matches!(result, Err(Error::ExitStatus(_)));
+    }
+
+    #[test]
+    fn warnings()
+    {
+        let action = Action::RunCommand{
+            inputs: BTreeMap::new(),
+            outputs: vec![],
+            program: "/bin/sh".into(),
+            arguments: vec![
+                cstr!(b"sh").into(),
+                cstr!(b"-c").into(),
+                cstr!(b"echo hello; echo 'warning: boo'").into(),
+            ],
+            environment: vec![],
+            timeout: Duration::from_millis(50),
+            warnings: Some(Regex::new("^warning:").unwrap()),
+        };
+        let source_root = open("/dev/null", O_PATH, 0).unwrap();
+        let (result, _) =
+            call_perform_run_command(source_root.as_fd(), &action, &[]);
+        assert_matches!(result, Ok(Summary{warnings: true, ..}));
     }
 }
