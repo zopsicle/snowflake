@@ -2,14 +2,27 @@
 
 use {
     regex::bytes::Regex,
+    sekka::isolate::Isolate,
     snowflake_actions::*,
     snowflake_core::{action::*, label::*},
     snowflake_util::basename::*,
-    std::time::Duration,
+    std::{sync::Arc, thread::spawn, time::Duration},
 };
 
 fn main()
 {
+    let isolate = Arc::new(Isolate::new());
+
+    for _ in 0 .. 4 {
+        let isolate = isolate.clone();
+        spawn(move || {
+            isolate.with_mutator(|mutator| {
+                mutator.with_scope(|scope| {
+                })
+            });
+        });
+    }
+
     let ps = PackageLabel{segments: vec![].into()};
 
     let rsx = RuleLabel{package: ps.clone(), rule: "x".into()};

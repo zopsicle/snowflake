@@ -6,5 +6,10 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
+libc.workspace = true
+smallvec.workspace = true
 thiserror.workspace = true
 typed-arena.workspace = true
+
+[dependencies.scope-exit]
+path = "../common/scope-exit"
