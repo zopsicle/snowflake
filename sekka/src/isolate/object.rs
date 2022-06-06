@@ -40,7 +40,7 @@ impl Drop for OwnedHandle
 
 pub struct Header
 {
-    r#type: Type,
+    _type: Type,
 }
 
 enum Type
@@ -71,7 +71,7 @@ impl Undef
     {
         *ptr = Self{
             header: Header{
-                r#type: Type::Undef,
+                _type: Type::Undef,
             },
         };
     }
@@ -101,7 +101,7 @@ impl String
     {
         *ptr = Self{
             header: Header{
-                r#type: Type::String,
+                _type: Type::String,
             },
             len,
             bytes: [],
@@ -135,7 +135,7 @@ impl Tuple
     {
         *ptr = Self{
             header: Header{
-                r#type: Type::Tuple,
+                _type: Type::Tuple,
             },
             len,
             elements: [],

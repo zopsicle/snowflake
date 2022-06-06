@@ -56,7 +56,7 @@ fn parse_expression_1(lexemes: &mut impl Iterator<Item=lex::Result<Lexeme>>)
 /*                                  Terminals                                 */
 /* -------------------------------------------------------------------------- */
 
-fn expect_identifier(
+fn _expect_identifier(
     lexemes: &mut impl Iterator<Item=lex::Result<Lexeme>>,
 ) -> Result<(Location, Arc<str>)>
 {

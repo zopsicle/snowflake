@@ -58,7 +58,7 @@ macro_rules! next_if_matches
 }
 
 /// Read a lexeme and assert it has the given token.
-pub fn expect(
+pub fn _expect(
     lexemes: &mut impl Iterator<Item=lex::Result<Lexeme>>,
     expected: Token,
 ) -> Result<Location>
@@ -86,7 +86,7 @@ macro_rules! expect_match
 /// Repeatedly parse elements the given end token is encountered.
 ///
 /// The end token is also consumed, and its location return.
-pub fn many_until<I, F, R>(
+pub fn _many_until<I, F, R>(
     lexemes: &mut Peekable<I>,
     mut element: F,
     end: Token,
