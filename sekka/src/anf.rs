@@ -47,6 +47,10 @@ pub enum Binding
 /// Expression that reduces by non-trivial rules.
 pub enum Computation
 {
+    Atom{
+        atom: Atom,
+    },
+
     Call{
         callee: Atom,
         argument: Atom,

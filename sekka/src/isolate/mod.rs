@@ -81,6 +81,7 @@ pub struct Scope
 }
 
 /// Scope-managed handle to an object.
+#[derive(Clone, Copy)]
 pub struct ScopedHandle<'a>
 {
     /// The scope to which this handle belongs.
@@ -264,7 +265,7 @@ impl Scope
 impl<'a> ScopedHandle<'a>
 {
     /// Get the underlying handle.
-    pub fn get(&self) -> UnsafeHandle
+    pub fn get(self) -> UnsafeHandle
     {
         // SAFETY: handles is not currently borrowed.
         let handles = unsafe { self.scope.handles.borrow() };
@@ -279,7 +280,7 @@ impl<'a> ScopedHandle<'a>
     ///
     /// The unsafe handle must reference a live object
     /// on the isolate that this scoped handle belongs to.
-    pub unsafe fn set(&self, handle: UnsafeHandle)
+    pub unsafe fn set(self, handle: UnsafeHandle)
     {
         // SAFETY: handles is not currently borrowed.
         let mut handles = self.scope.handles.borrow_mut();

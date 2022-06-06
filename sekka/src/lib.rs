@@ -5,5 +5,6 @@
 #![warn(missing_docs)]
 
 pub mod anf;
+pub mod interpret;
 pub mod isolate;
 pub mod syntax;
