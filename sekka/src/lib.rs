@@ -4,5 +4,6 @@
 #![feature(maybe_uninit_write_slice)]
 #![warn(missing_docs)]
 
+pub mod anf;
 pub mod isolate;
 pub mod syntax;

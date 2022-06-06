@@ -15,6 +15,10 @@ pub struct UnsafeHandle
     pub (super) inner: NonNull<Header>,
 }
 
+// Dereferencing unsafe handles is already unsafe.
+unsafe impl Send for UnsafeHandle { }
+unsafe impl Sync for UnsafeHandle { }
+
 /// Handle to an object that frees it when dropped.
 pub struct OwnedHandle
 {
