@@ -1,3 +1,5 @@
+//! Garbage-collected heaps and objects.
+
 pub use self::object::UnsafeHandle;
 
 use {

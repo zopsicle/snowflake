@@ -17,7 +17,7 @@ fn main()
         let isolate = isolate.clone();
         spawn(move || {
             isolate.with_mutator(|mutator| {
-                mutator.with_scope(|scope| {
+                mutator.with_scope(|_scope| {
                 })
             });
         });

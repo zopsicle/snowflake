@@ -1,58 +1,67 @@
-use {crate::isolate::UnsafeHandle, std::sync::Arc};
+//! Compiled representation of expressions.
+
+use {crate::isolate::UnsafeHandle, std::{cell::Cell, sync::Arc}};
 
 /// Sequence of mutually recursive bindings followed by a computation.
 pub struct Letrec
 {
+    /// The bindings that the computation may close over.
     pub bindings: Vec<Binding>,
+
+    /// The computation that yields the result of this letrec.
     pub computation: Computation,
 }
 
 /// Trivial expression that requires no allocation.
+#[allow(missing_docs)]
 pub enum Atom
 {
-    Constant{
-        handle: UnsafeHandle,
-    },
+    /// Yield a hardcoded object.
+    ///
+    /// This is a cell because the garbage collector
+    /// must update the handle after moving the object.
+    Constant{handle: Cell<UnsafeHandle>},
 
-    Environment{
-        index: usize,
-    },
+    /// Yield a variable captured by the current closure.
+    ///
+    /// Each closure contains an array of captured variables,
+    /// which is known as the environment of the closure.
+    /// This index indexes into that array.
+    Environment{index: usize},
 
+    /// Yield the argument passed to the current lambda.
+    ///
+    /// This is meaningless within thunks,
+    /// and would yield an arbitrary value.
     Argument,
 
-    Binding{
-        /// Indexes into [`Letrec::bindings`].
-        index: usize,
-    },
+    /// Yield the result of a binding in the letrec that contains this atom.
+    ///
+    /// Indexes into [`Letrec::bindings`].
+    Binding{index: usize},
 }
 
 /// Trivial expression that requires allocation.
+#[allow(missing_docs)]
 pub enum Binding
 {
-    Tuple{
-        elements: Vec<Atom>,
-    },
+    /// Allocate and initialize a tuple with the given elements.
+    Tuple{elements: Vec<Atom>},
 
-    Thunk{
-        environment: Vec<Atom>,
-        body: Arc<Letrec>,
-    },
+    /// Allocate and initialize a tuple with the given environment and body.
+    Thunk{environment: Vec<Atom>, body: Arc<Letrec>},
 
-    Lambda{
-        environment: Vec<Atom>,
-        body: Arc<Letrec>,
-    },
+    /// Allocate and initialize a lambda with the given environment and body.
+    Lambda{environment: Vec<Atom>, body: Arc<Letrec>},
 }
 
-/// Expression that reduces by non-trivial rules.
+/// Expression that possibly reduces by non-trivial rules.
+#[allow(missing_docs)]
 pub enum Computation
 {
-    Atom{
-        atom: Atom,
-    },
+    /// Yield an atom.
+    Atom{atom: Atom},
 
-    Call{
-        callee: Atom,
-        argument: Atom,
-    },
+    /// Evaluate the callee and perform a tail call.
+    Call{callee: Atom, argument: Atom},
 }

@@ -3,6 +3,8 @@
 // TODO: Define function for interpreting a call.
 #![allow(unused)]
 
+//! Interpreter for the compiled representation.
+
 use {
     crate::{
         anf::{Atom, Binding, Computation, Letrec},
@@ -65,7 +67,7 @@ unsafe fn interpret_atom(
     // IMPORTANT: Do not enter a garbage collection safe point here.
 
     match atom {
-        Atom::Constant{handle}   => *handle,
+        Atom::Constant{handle}   => handle.get(),
         Atom::Environment{index} => *ε.add(*index),
         Atom::Argument           => α,
         Atom::Binding{index}     => *βs.add(*index),
