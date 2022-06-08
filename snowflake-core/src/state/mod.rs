@@ -3,10 +3,16 @@
 pub use self::cache_output::*;
 
 use {
-    os_ext::{O_DIRECTORY, O_PATH, mkdirat, open, openat},
+    os_ext::{
+        AT_EMPTY_PATH,
+        O_DIRECTORY, O_PATH, O_TMPFILE, O_WRONLY,
+        cstr, linkat, mkdirat, open, openat,
+    },
+    serde::{Deserialize, Serialize},
     snowflake_util::hash::Hash,
     std::{
-        io::{self, ErrorKind::AlreadyExists},
+        fs::File,
+        io::{self, ErrorKind::AlreadyExists, Write},
         lazy::SyncOnceCell,
         os::unix::io::{AsFd, BorrowedFd, OwnedFd},
         path::{Path, PathBuf},
@@ -32,8 +38,33 @@ pub struct State
     action_cache_dir: SyncOnceCell<OwnedFd>,
     output_cache_dir: SyncOnceCell<OwnedFd>,
 
-    /// Name of the next scratch directory to create.
-    next_scratch_dir: AtomicU32,
+    /// Name of the next scratch file to create.
+    next_scratch: AtomicU32,
+}
+
+/// Cached information about an action.
+#[derive(Deserialize, Serialize)]
+pub struct ActionCacheEntry
+{
+    /// The hash of the build log.
+    ///
+    /// This enables finding the build log in the output cache.
+    pub build_log: Hash,
+
+    /// The hash of each output of the action.
+    ///
+    /// The number of outputs must equal [`Action::outputs`]
+    /// and their indices must match those in [output labels].
+    ///
+    /// [`Action::outputs`]: `crate::action::Action::outputs`
+    /// [output labels]: `crate::label::ActionOutputLabel`
+    pub outputs: Vec<Hash>,
+
+    /// Whether warnings were emitted by the action.
+    ///
+    /// See the manual entry on warnings for
+    /// the implications of setting this flag.
+    pub warnings: bool,
 }
 
 impl State
@@ -52,7 +83,7 @@ impl State
             scratches_dir:    SyncOnceCell::new(),
             action_cache_dir: SyncOnceCell::new(),
             output_cache_dir: SyncOnceCell::new(),
-            next_scratch_dir: AtomicU32::new(0),
+            next_scratch:     AtomicU32::new(0),
         };
 
         Ok(this)
@@ -60,8 +91,8 @@ impl State
 
     /// Handle to the scratches directory.
     ///
-    /// The scratches directory contains scratch directories.
-    /// A scratch directory is a temporary directory for use while building.
+    /// The scratches directory contains scratch files.
+    /// A scratch file is a temporary file for use while building.
     fn scratches_dir(&self) -> io::Result<BorrowedFd>
     {
         self.ensure_open_dir_once(&self.scratches_dir, SCRATCHES_DIR)
@@ -73,17 +104,62 @@ impl State
     pub fn new_scratch_dir(&self) -> io::Result<OwnedFd>
     {
         let scratches_dir = self.scratches_dir()?;
-        let scratch_dir_id = self.next_scratch_dir.fetch_add(1, SeqCst);
+        let scratch_dir_id = self.next_scratch.fetch_add(1, SeqCst);
         let path = PathBuf::from(scratch_dir_id.to_string());
         mkdirat(Some(scratches_dir), &path, 0o755)?;
         openat(Some(scratches_dir), &path, O_DIRECTORY | O_PATH, 0)
     }
 
+    /// Link a file in the scratches directory.
+    ///
+    /// Returns the file descriptor for the scratches directory
+    /// and the relative path to the newly created link.
+    pub fn new_scratch_link(&self, fd: BorrowedFd)
+        -> io::Result<(BorrowedFd, PathBuf)>
+    {
+        let scratches_dir = self.scratches_dir()?;
+        let scratch_dir_id = self.next_scratch.fetch_add(1, SeqCst);
+        let path = PathBuf::from(scratch_dir_id.to_string());
+        linkat(
+            Some(fd),            cstr!(b""),
+            Some(scratches_dir), &path,
+            AT_EMPTY_PATH,
+        )?;
+        Ok((scratches_dir, path))
+    }
+
     /// Handle to the action cache.
     fn action_cache_dir(&self) -> io::Result<BorrowedFd>
     {
-        #![allow(unused)]  // TODO: Use this somewhere.
         self.ensure_open_dir_once(&self.action_cache_dir, ACTION_CACHE_DIR)
+    }
+
+    /// Insert an entry into the action cache.
+    ///
+    /// The entry is stored at the given action hash.
+    /// If the entry already exists, nothing is changed.
+    pub fn cache_action(&self, hash: Hash, entry: &ActionCacheEntry)
+        -> io::Result<()>
+    {
+        let cache = self.action_cache_dir()?;
+
+        // Open a file to store the cache entry.
+        let flags = O_TMPFILE | O_WRONLY;
+        let file = openat(Some(cache), cstr!(b"."), flags, 0o644)?;
+
+        // Write the cache entry to a file.
+        let mut file = File::from(file);
+        serde_json::to_writer(&mut file, entry)?;
+        file.flush()?;
+
+        // Create the file in the action cache.
+        linkat(
+            Some(file.as_fd()), cstr!(b""),
+            Some(cache),        hash.to_string(),
+            AT_EMPTY_PATH,
+        ).or_else(ok_if_already_exists)?;
+
+        Ok(())
     }
 
     /// Handle to the output cache.
@@ -102,6 +178,29 @@ impl State
         -> Result<Hash, CacheOutputError>
     {
         self.cache_output_impl(dirfd, pathname)
+    }
+
+    /// Insert a build log into the output cache.
+    ///
+    /// Build logs are opened with `O_TMPFILE`, so they don't have a path.
+    /// They cannot be inserted using [`cache_output`][`Self::cache_output`].
+    /// This method first creates a scratch link, then moves it to the cache.
+    /// This method takes ownership of and closes the build log,
+    /// because it must not be modified after adding it to the cache.
+    pub fn cache_build_log(state: &State, build_log: OwnedFd)
+        -> io::Result<Hash>
+    {
+        let (scratches_dir, build_log_path) =
+            state.new_scratch_link(build_log.as_fd())?;
+
+        drop(build_log);
+
+        match state.cache_output(Some(scratches_dir), &build_log_path) {
+            Ok(hash) => Ok(hash),
+            Err(CacheOutputError::Io(err)) => Err(err),
+            Err(CacheOutputError::Output(err)) =>
+                panic!("Build logs should always qualify for caching: {err}"),
+        }
     }
 
     /// Ensure that a directory exists and open it.

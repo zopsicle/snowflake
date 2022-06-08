@@ -2,7 +2,7 @@
 
 pub use self::{blake3::*, file::*};
 
-use std::fmt;
+use {serde::{Deserialize, Serialize}, std::fmt};
 
 mod blake3;
 mod file;
@@ -21,7 +21,7 @@ mod put;
 /// assert_eq!(hash.to_string(), "ede5c0b10f2ec4979c69b52f61e42ff5\
 ///                               b413519ce09be0f14d098dcfe5f6f98d");
 /// ```
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Hash(pub [u8; 32]);
 
 impl fmt::Display for Hash

@@ -9,5 +9,7 @@ edition = "2021"
 anyhow.workspace = true
 bitflags.workspace = true
 os-ext.path = "../common/os-ext"
+serde.workspace = true
+serde_json.workspace = true
 snowflake-util.path = "../snowflake-util"
 thiserror.workspace = true

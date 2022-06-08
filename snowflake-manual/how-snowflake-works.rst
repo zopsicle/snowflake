@@ -60,7 +60,6 @@ The action cache stores information about previously succeeded actions.
 In the action cache, actions are identified by their hash,
 which consists of the action's configuration and inputs.
 Each action is mapped to the hashes of the outputs it produced.
-The action cache also stores any logs produced by the action.
 
 
 .. index::
@@ -72,3 +71,7 @@ Output cache
 The output cache is simply a content-addressed store of outputs.
 Each output ever produced by an action is stored in the output cache,
 identified by the hash of the output.
+
+The output cache also stores build logs of successful actions.
+Build logs are often identical across builds (and even actions),
+so storing them content-addressed is efficient.
