@@ -7,9 +7,7 @@ edition = "2021"
 
 [dependencies]
 libc.workspace = true
+scope-exit.path = "../common/scope-exit"
 smallvec.workspace = true
 thiserror.workspace = true
 typed-arena.workspace = true
-
-[dependencies.scope-exit]
-path = "../common/scope-exit"

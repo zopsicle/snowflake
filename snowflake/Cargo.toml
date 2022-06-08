@@ -6,22 +6,10 @@ version = "0.0.0"
 edition = "2021"
 
 [dependencies]
+os-ext.path = "../common/os-ext"
 regex.workspace = true
-
-[dependencies.os-ext]
-path = "../common/os-ext"
-
-[dependencies.scope-exit]
-path = "../common/scope-exit"
-
-[dependencies.sekka]
-path = "../sekka"
-
-[dependencies.snowflake-actions]
-path = "../snowflake-actions"
-
-[dependencies.snowflake-core]
-path = "../snowflake-core"
-
-[dependencies.snowflake-util]
-path = "../snowflake-util"
+scope-exit.path = "../common/scope-exit"
+sekka.path = "../sekka"
+snowflake-actions.path = "../snowflake-actions"
+snowflake-core.path = "../snowflake-core"
+snowflake-util.path = "../snowflake-util"
