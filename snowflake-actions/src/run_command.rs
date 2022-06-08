@@ -15,7 +15,7 @@ use {
         Error,
         Perform,
         Result as AResult,
-        Summary,
+        Success,
     },
     snowflake_util::{basename::Basename, hash::{Blake3, Hash}},
     std::{
@@ -161,7 +161,7 @@ fn perform_run_command(
     let warnings = find_warnings(*build_log, warnings.as_ref())?;
 
     // Summarize the result.
-    Ok(Summary{output_paths, warnings})
+    Ok(Success{output_paths, warnings})
 }
 
 /// Arguments to mount.
@@ -720,7 +720,7 @@ mod tests
         source_root: BorrowedFd,
         action: &RunCommand,
         input_paths: &[PathBuf],
-    ) -> (Result<Summary, Error>, File)
+    ) -> (Result<Success, Error>, File)
     {
         let path      = mkdtemp(cstr!(b"/tmp/snowflake-test-XXXXXX")).unwrap();
         let build_log = open(cstr!(b"."), O_RDWR | O_TMPFILE, 0o644).unwrap();
@@ -788,7 +788,7 @@ mod tests
                 &input_paths,
             );
 
-        assert_matches!(result, Ok(Summary{warnings: false, ..}));
+        assert_matches!(result, Ok(Success{warnings: false, ..}));
         let mut buf = String::new();
         build_log.read_to_string(&mut buf).unwrap();
         assert_eq!(buf, "Hello, world!\nbar.txt\nfoo.txt\n\
@@ -814,7 +814,7 @@ mod tests
         let source_root = open("/dev/null", O_PATH, 0).unwrap();
         let (result, mut build_log) =
             call_perform_run_command(source_root.as_fd(), &action, &[]);
-        assert_matches!(result, Ok(Summary{warnings: false, ..}));
+        assert_matches!(result, Ok(Success{warnings: false, ..}));
         let mut buf = Vec::new();
         build_log.read_to_end(&mut buf).unwrap();
         assert_eq!(buf, b"1\n");
@@ -877,6 +877,6 @@ mod tests
         let source_root = open("/dev/null", O_PATH, 0).unwrap();
         let (result, _) =
             call_perform_run_command(source_root.as_fd(), &action, &[]);
-        assert_matches!(result, Ok(Summary{warnings: true, ..}));
+        assert_matches!(result, Ok(Success{warnings: true, ..}));
     }
 }

@@ -1,7 +1,7 @@
 use {
     anyhow::Context,
     os_ext::symlinkat,
-    snowflake_core::action::{Action, Perform, Result, Summary},
+    snowflake_core::action::{Action, Perform, Result, Success},
     snowflake_util::hash::{Blake3, Hash},
     std::{ffi::CString, path::PathBuf},
 };
@@ -31,7 +31,7 @@ impl Action for CreateSymbolicLink
         let output_path = PathBuf::from("output");
         symlinkat(&self.target, Some(perform.scratch), &output_path)
             .context("Create symbolic link")?;
-        Ok(Summary{output_paths: vec![output_path], warnings: false})
+        Ok(Success{output_paths: vec![output_path], warnings: false})
     }
 
     fn hash(&self, input_hashes: &[Hash]) -> Hash

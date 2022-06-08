@@ -1,7 +1,7 @@
 use {
     anyhow::Context,
     os_ext::{O_CREAT, O_WRONLY, openat},
-    snowflake_core::action::{Action, Perform, Result, Summary},
+    snowflake_core::action::{Action, Perform, Result, Success},
     snowflake_util::hash::{Blake3, Hash},
     std::{fs::File, io::Write, path::PathBuf},
 };
@@ -39,7 +39,7 @@ impl Action for WriteRegularFile
             .context("Open regular file")?;
         File::from(file).write_all(&self.content)
             .context("Write regular file")?;
-        Ok(Summary{output_paths: vec![output_path], warnings: false})
+        Ok(Success{output_paths: vec![output_path], warnings: false})
     }
 
     fn hash(&self, input_hashes: &[Hash]) -> Hash

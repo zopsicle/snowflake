@@ -73,14 +73,14 @@ pub struct Perform<'a>
 
 /// Result of performing an action.
 pub type Result =
-    std::result::Result<Summary, Error>;
+    std::result::Result<Success, Error>;
 
 /// Information about successfully performing an action.
 ///
 /// Successfully performing an action might still cause the build to fail,
 /// for example when some of the declared outputs do not actually exist.
 #[derive(Debug)]
-pub struct Summary
+pub struct Success
 {
     /// Pathnames of outputs produced by the action.
     ///
