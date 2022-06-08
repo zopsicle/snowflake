@@ -11,11 +11,8 @@ use {
     regex::bytes::Regex,
     scope_exit::ScopeExit,
     snowflake_core::action::{
-        Action,
-        Error,
-        Perform,
+        Action, Error, Outputs, Perform, Success,
         Result as AResult,
-        Success,
     },
     snowflake_util::{basename::Basename, hash::{Blake3, Hash}},
     std::{
@@ -45,7 +42,7 @@ pub struct RunCommand
     pub inputs: Vec<Basename<OsString>>,
 
     /// What the outputs are called in the command's working directory.
-    pub outputs: Vec<Basename<OsString>>,
+    pub outputs: Outputs<Vec<Basename<OsString>>>,
 
     /// Absolute path to the program to run.
     pub program: PathBuf,
@@ -82,9 +79,9 @@ impl Action for RunCommand
         self.inputs.len()
     }
 
-    fn outputs(&self) -> usize
+    fn outputs(&self) -> Outputs<usize>
     {
-        self.outputs.len()
+        self.outputs.as_ref().map(Vec::len)
     }
 
     fn perform(&self, perform: &Perform, input_paths: &[PathBuf]) -> AResult
@@ -95,6 +92,9 @@ impl Action for RunCommand
     fn hash(&self, input_hashes: &[Hash]) -> Hash
     {
         // NOTE: See the manual chapter on avoiding hash collisions.
+
+        const OUTPUTS_TYPE_OUTPUTS: u8 = 0;
+        const OUTPUTS_TYPE_LINT:    u8 = 1;
 
         let Self{inputs, outputs, program, arguments,
                  environment, timeout, warnings} = self;
@@ -111,7 +111,16 @@ impl Action for RunCommand
             h.put_hash(*hash);
         }
 
-        h.put_slice(outputs, |h, o| h.put_os_str(o));
+        match outputs {
+            Outputs::Outputs(outputs) => {
+                h.put_u8(OUTPUTS_TYPE_OUTPUTS);
+                h.put_slice(outputs, |h, o| h.put_os_str(o));
+            },
+            Outputs::Lint => {
+                h.put_u8(OUTPUTS_TYPE_LINT);
+            },
+        }
+
         h.put_path(program);
         h.put_slice(arguments, |h, a| h.put_cstr(a));
         h.put_slice(environment, |h, e| h.put_cstr(e));
@@ -377,12 +386,18 @@ fn mount_input(
 }
 
 /// Compute the scratch-relative path at which each output is created.
-fn output_paths(outputs: &[Basename<OsString>]) -> Vec<PathBuf>
+fn output_paths(outputs: &Outputs<Vec<Basename<OsString>>>) -> Vec<PathBuf>
 {
-    let build_dir = Path::new("build");
-    outputs.iter()
-        .map(|b| build_dir.join(&**b))
-        .collect()
+    match outputs {
+        Outputs::Outputs(outputs) => {
+            let build_dir = Path::new("build");
+            outputs.iter()
+                .map(|b| build_dir.join(&**b))
+                .collect()
+        },
+        Outputs::Lint =>
+            Vec::new(),
+    }
 }
 
 /// Look for warnings in the build log.
@@ -762,7 +777,7 @@ mod tests
 
         let action = RunCommand{
             inputs,
-            outputs: vec![],
+            outputs: Outputs::Outputs(vec![]),
             program: "/bin/sh".into(),
             arguments: vec![
                 cstr!(b"sh").into(),
@@ -800,7 +815,7 @@ mod tests
     {
         let action = RunCommand{
             inputs: vec![],
-            outputs: vec![],
+            outputs: Outputs::Outputs(vec![]),
             program: "/bin/sh".into(),
             arguments: vec![
                 cstr!(b"sh").into(),
@@ -826,7 +841,7 @@ mod tests
         let coreutils = env!("SNOWFLAKE_COREUTILS");
         let action = RunCommand{
             inputs: vec![],
-            outputs: vec![],
+            outputs: Outputs::Outputs(vec![]),
             program: Path::new(&coreutils).join("bin/sleep"),
             arguments: vec![cstr!(b"sleep").into(), cstr!(b"0.060").into()],
             environment: vec![],
@@ -845,7 +860,7 @@ mod tests
         let coreutils = env!("SNOWFLAKE_COREUTILS");
         let action = RunCommand{
             inputs: vec![],
-            outputs: vec![],
+            outputs: Outputs::Outputs(vec![]),
             program: Path::new(&coreutils).join("bin/false"),
             arguments: vec![cstr!(b"false").into()],
             environment: vec![],
@@ -863,7 +878,7 @@ mod tests
     {
         let action = RunCommand{
             inputs: vec![],
-            outputs: vec![],
+            outputs: Outputs::Outputs(vec![]),
             program: "/bin/sh".into(),
             arguments: vec![
                 cstr!(b"sh").into(),

@@ -1,7 +1,7 @@
 use {
     anyhow::Context,
     os_ext::{O_CREAT, O_WRONLY, openat},
-    snowflake_core::action::{Action, Perform, Result, Success},
+    snowflake_core::action::{Action, Outputs, Perform, Result, Success},
     snowflake_util::hash::{Blake3, Hash},
     std::{fs::File, io::Write, path::PathBuf},
 };
@@ -24,9 +24,9 @@ impl Action for WriteRegularFile
         0
     }
 
-    fn outputs(&self) -> usize
+    fn outputs(&self) -> Outputs<usize>
     {
-        1
+        Outputs::Outputs(1)
     }
 
     fn perform(&self, perform: &Perform, input_paths: &[PathBuf]) -> Result

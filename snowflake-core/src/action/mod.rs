@@ -1,6 +1,6 @@
 //! Describing and performing actions.
 
-pub use self::graph::*;
+pub use self::{graph::*, outputs::*};
 
 use {
     snowflake_util::hash::Hash,
@@ -14,6 +14,7 @@ use {
 };
 
 mod graph;
+mod outputs;
 
 /// Object-safe trait for actions.
 pub trait Action
@@ -22,7 +23,7 @@ pub trait Action
     fn inputs(&self) -> usize;
 
     /// The number of outputs of this action.
-    fn outputs(&self) -> usize;
+    fn outputs(&self) -> Outputs<usize>;
 
     /// Perform the action.
     ///
@@ -54,7 +55,7 @@ impl<T> ActionExt for T
 {
     fn is_lint(&self) -> bool
     {
-        self.outputs() == 0
+        matches!(self.outputs(), Outputs::Lint)
     }
 }
 

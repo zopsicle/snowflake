@@ -60,7 +60,9 @@ fn main()
                             Basename::new("a".into()).unwrap(),
                             Basename::new("b".into()).unwrap(),
                         ],
-                        outputs: vec![Basename::new("o".into()).unwrap()],
+                        outputs: Outputs::Outputs(
+                            vec![Basename::new("o".into()).unwrap()],
+                        ),
                         program: "/run/current-system/sw/bin/sleep".into(),
                         arguments: vec![],
                         environment: vec![],
@@ -81,7 +83,9 @@ fn main()
                             Basename::new("c".into()).unwrap(),
                             Basename::new("d".into()).unwrap(),
                         ],
-                        outputs: vec![Basename::new("o".into()).unwrap()],
+                        outputs: Outputs::Outputs(
+                            vec![Basename::new("o".into()).unwrap()],
+                        ),
                         program: "/run/current-system/sw/bin/sleep".into(),
                         arguments: vec![],
                         environment: vec![],
@@ -101,7 +105,9 @@ fn main()
                         inputs: vec![
                             Basename::new("e".into()).unwrap(),
                         ],
-                        outputs: vec![Basename::new("o".into()).unwrap()],
+                        outputs: Outputs::Outputs(
+                            vec![Basename::new("o".into()).unwrap()],
+                        ),
                         program: "/run/current-system/sw/bin/sleep".into(),
                         arguments: vec![],
                         environment: vec![],
@@ -120,7 +126,9 @@ fn main()
                         inputs: vec![
                             Basename::new("f".into()).unwrap(),
                         ],
-                        outputs: [].into_iter().collect(),
+                        outputs: Outputs::Outputs(
+                            [].into_iter().collect(),
+                        ),
                         program: "/run/current-system/sw/bin/sleep".into(),
                         arguments: vec![],
                         environment: vec![],
