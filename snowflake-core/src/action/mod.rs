@@ -28,12 +28,16 @@ pub trait Action
     /// Perform the action.
     ///
     /// This method takes paths to inputs and produces outputs.
-    /// As a side-effect it writes to the [build log][`Perform::build_log`].
+    /// As a side-effect it writes to the [build log].
     /// It does not look up inputs in the cache or move outputs to the cache;
-    /// these tasks are the responsibility of the caller.
+    /// that is part of *building* the action (see [`Outcome`]).
     ///
-    /// The number of input paths must equal [`inputs`][`Self::inputs`]
+    /// The number of input paths must equal [`inputs`]
     /// and their order must match that of the inputs in [`ActionGraph`].
+    ///
+    /// [build log]: `Perform::build_log`
+    /// [`Outcome`]: `crate::drive::Outcome`
+    /// [`inputs`]: `Self::inputs`
     fn perform(&self, perform: &Perform, input_paths: &[InputPath]) -> Result;
 
     /// Compute the hash of the action.

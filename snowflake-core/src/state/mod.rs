@@ -227,8 +227,12 @@ impl State
     ///
     /// Returns the file descriptor for the output cache
     /// and the relative path to the cached output.
-    /// If there is no such output, this method still succeeds;
-    /// the path would point to a non-existing file.
+    ///
+    /// If there is no such output, this method still succeeds.
+    /// The returned path would point to a non-existing file.
+    /// Since the output cache is content-addressed,
+    /// this would mean there is a dangling reference somewhere.
+    /// The caller should interpret this as a bug and crash.
     pub fn cached_output(&self, hash: Hash)
         -> io::Result<(BorrowedFd, PathBuf)>
     {

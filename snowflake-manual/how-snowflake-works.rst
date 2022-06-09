@@ -8,9 +8,11 @@ How Snowflake works
 .. index::
    single: action
    single: action graph
+   single: build
    single: dependency
    single: input
    single: output
+   single: perform
    single: rule
    single: static file
 
@@ -23,15 +25,17 @@ and compile it into an object file, which would be an output.
 An input can be a static file or an output of another action (a *dependency*).
 By interpreting dependencies as edges, any collection of actions forms a graph.
 Topologically sorting this action graph gives an order
-in which the actions can be performed.
+in which the actions can be built.
 
-Before an action can be performed, all of its inputs must exist.
+Before an action can be built, all of its inputs must exist.
 That is, any static file inputs must already exist,
 which is the responsibility of the programmer;
 and any dependency inputs must already be built,
 which happens automatically by the build system.
+Then, the action is *performed*, which means running its procedure.
 After an action was performed, it is inserted into the action cache,
 and any outputs it produced are inserted into the output cache.
+Only after successful insertion to the caches, an action is considered *built*.
 
 A rule is essentially a macro that expands to a collection of actions.
 As such, the rule system is not fundamental to the workings of Snowflake.

@@ -25,7 +25,9 @@ pub enum Input
 
     /// Static file.
     ///
-    /// The path is interpreted to be relative to the source root.
+    /// The path is interpreted to be relative to the [source root].
+    ///
+    /// [source root]: `crate::drive::Context::source_root`
     StaticFile(PathBuf),
 }
 

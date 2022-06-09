@@ -13,5 +13,6 @@
 #![warn(missing_docs)]
 
 pub mod action;
+pub mod drive;
 pub mod label;
 pub mod state;
