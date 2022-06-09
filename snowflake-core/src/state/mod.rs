@@ -4,8 +4,8 @@ pub use self::cache_output::*;
 
 use {
     os_ext::{
-        AT_EMPTY_PATH,
-        O_DIRECTORY, O_PATH, O_TMPFILE, O_WRONLY,
+        AT_SYMLINK_FOLLOW,
+        O_DIRECTORY, O_PATH, O_RDONLY, O_TMPFILE, O_WRONLY,
         cstr, linkat, mkdirat, open, openat,
     },
     serde::{Deserialize, Serialize},
@@ -14,7 +14,7 @@ use {
         fs::File,
         io::{self, ErrorKind::AlreadyExists, Write},
         lazy::SyncOnceCell,
-        os::unix::io::{AsFd, BorrowedFd, OwnedFd},
+        os::unix::io::{AsFd, AsRawFd, BorrowedFd, OwnedFd},
         path::{Path, PathBuf},
         sync::atomic::{AtomicU32, Ordering::SeqCst},
     },
@@ -121,9 +121,9 @@ impl State
         let scratch_dir_id = self.next_scratch.fetch_add(1, SeqCst);
         let path = PathBuf::from(scratch_dir_id.to_string());
         linkat(
-            Some(fd),            cstr!(b""),
+            None, format!("/proc/self/fd/{}", fd.as_raw_fd()),
             Some(scratches_dir), &path,
-            AT_EMPTY_PATH,
+            AT_SYMLINK_FOLLOW,
         )?;
         Ok((scratches_dir, path))
     }
@@ -154,9 +154,9 @@ impl State
 
         // Create the file in the action cache.
         linkat(
-            Some(file.as_fd()), cstr!(b""),
-            Some(cache),        hash.to_string(),
-            AT_EMPTY_PATH,
+            None, format!("/proc/self/fd/{}", file.as_raw_fd()),
+            Some(cache), hash.to_string(),
+            AT_SYMLINK_FOLLOW,
         ).or_else(ok_if_already_exists)?;
 
         Ok(())
