@@ -12,7 +12,7 @@ use {
     snowflake_util::hash::Hash,
     std::{
         fs::File,
-        io::{self, ErrorKind::AlreadyExists, Write},
+        io::{self, BufReader, ErrorKind::{AlreadyExists, NotFound}, Write},
         lazy::SyncOnceCell,
         os::unix::io::{AsFd, AsRawFd, BorrowedFd, OwnedFd},
         path::{Path, PathBuf},
@@ -43,7 +43,7 @@ pub struct State
 }
 
 /// Cached information about an action.
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ActionCacheEntry
 {
     /// The hash of the build log.
@@ -162,6 +162,26 @@ impl State
         Ok(())
     }
 
+    /// Read an entry from the action cache.
+    ///
+    /// If there is no entry for the given action,
+    /// this method returns [`None`].
+    pub fn cached_action(&self, hash: Hash)
+        -> io::Result<Option<ActionCacheEntry>>
+    {
+        let cache = self.action_cache_dir()?;
+        match openat(Some(cache), hash.to_string(), O_RDONLY, 0) {
+            Ok(file) => {
+                let file = File::from(file);
+                let file = BufReader::new(file);
+                let entry = serde_json::from_reader(file)?;
+                Ok(Some(entry: ActionCacheEntry))
+            },
+            Err(err) if err.kind() == NotFound => Ok(None),
+            Err(err) => Err(err),
+        }
+    }
+
     /// Handle to the output cache.
     fn output_cache_dir(&self) -> io::Result<BorrowedFd>
     {
@@ -266,5 +286,31 @@ mod tests
             O_CREAT | O_WRONLY,
             0o644,
         ).unwrap();
+    }
+
+    #[test]
+    fn action_cache()
+    {
+        // Create state directory.
+        let path = mkdtemp(cstr!(b"/tmp/snowflake-test-XXXXXX")).unwrap();
+        let state = State::open(&path).unwrap();
+
+        // Prepare action for inserting into action cache.
+        let hash = Hash([0; 32]);
+        let entry = ActionCacheEntry{
+            build_log: Hash([1; 32]),
+            outputs: vec![Hash([2; 32]), Hash([3; 32])],
+            warnings: true,
+        };
+
+        // Insert action into cache and retrieve from cache.
+        state.cache_action(hash, &entry).unwrap();
+        let retrieved = state.cached_action(hash).unwrap().unwrap();
+
+        // Check that the entry was retrieved correctly.
+        assert_eq!(format!("{entry:?}"), format!("{retrieved:?}"));
+
+        // Retrieving a non-existent action should return None.
+        assert!(state.cached_action(Hash([4; 32])).unwrap().is_none());
     }
 }

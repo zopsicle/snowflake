@@ -9,6 +9,7 @@
 #![feature(io_error_other)]
 #![feature(io_safety)]
 #![feature(once_cell)]
+#![feature(type_ascription)]
 #![warn(missing_docs)]
 
 pub mod action;
