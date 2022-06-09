@@ -223,6 +223,20 @@ impl State
         }
     }
 
+    /// Obtain the path to a cached output.
+    ///
+    /// Returns the file descriptor for the output cache
+    /// and the relative path to the cached output.
+    /// If there is no such output, this method still succeeds;
+    /// the path would point to a non-existing file.
+    pub fn cached_output(&self, hash: Hash)
+        -> io::Result<(BorrowedFd, PathBuf)>
+    {
+        let dirfd = self.output_cache_dir()?;
+        let path = PathBuf::from(hash.to_string());
+        Ok((dirfd, path))
+    }
+
     /// Ensure that a directory exists and open it.
     fn ensure_open_dir_once<'a>(
         &self,
