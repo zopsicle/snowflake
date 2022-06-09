@@ -1,7 +1,10 @@
 use {
     anyhow::Context,
     os_ext::symlinkat,
-    snowflake_core::action::{Action, Outputs, Perform, Result, Success},
+    snowflake_core::action::{
+        Action, InputPath, Outputs,
+        Perform, Result, Success,
+    },
     snowflake_util::hash::{Blake3, Hash},
     std::{ffi::CString, path::PathBuf},
 };
@@ -25,7 +28,7 @@ impl Action for CreateSymbolicLink
         Outputs::Outputs(1)
     }
 
-    fn perform(&self, perform: &Perform, input_paths: &[PathBuf]) -> Result
+    fn perform(&self, perform: &Perform, input_paths: &[InputPath]) -> Result
     {
         debug_assert_eq!(input_paths.len(), 0);
         let output_path = PathBuf::from("output");

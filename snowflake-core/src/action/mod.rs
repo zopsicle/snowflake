@@ -34,7 +34,7 @@ pub trait Action
     ///
     /// The number of input paths must equal [`inputs`][`Self::inputs`]
     /// and their order must match that of the inputs in [`ActionGraph`].
-    fn perform(&self, perform: &Perform, input_paths: &[PathBuf]) -> Result;
+    fn perform(&self, perform: &Perform, input_paths: &[InputPath]) -> Result;
 
     /// Compute the hash of the action.
     ///
@@ -65,11 +65,16 @@ pub struct Perform<'a>
     /// File that contains the build log.
     pub build_log: BorrowedFd<'a>,
 
-    /// Source root, to which input paths are relative.
-    pub source_root: BorrowedFd<'a>,
-
     /// Scratch directory which the action may use freely.
     pub scratch: BorrowedFd<'a>,
+}
+
+/// Path to an input and the directory to which it is relative.
+#[allow(missing_docs)]
+pub struct InputPath<'a>
+{
+    pub dirfd: BorrowedFd<'a>,
+    pub path: PathBuf,
 }
 
 /// Result of performing an action.

@@ -25,8 +25,7 @@ pub enum Input
 
     /// Static file.
     ///
-    /// The path is interpreted to be relative to
-    /// the [source root](`super::Perform::source_root`).
+    /// The path is interpreted to be relative to the source root.
     StaticFile(PathBuf),
 }
 

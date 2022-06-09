@@ -11,7 +11,7 @@ use {
     regex::bytes::Regex,
     scope_exit::ScopeExit,
     snowflake_core::action::{
-        Action, Error, Outputs, Perform, Success,
+        Action, Error, InputPath, Outputs, Perform, Success,
         Result as AResult,
     },
     snowflake_util::{basename::Basename, hash::{Blake3, Hash}},
@@ -84,7 +84,7 @@ impl Action for RunCommand
         self.outputs.as_ref().map(Vec::len)
     }
 
-    fn perform(&self, perform: &Perform, input_paths: &[PathBuf]) -> AResult
+    fn perform(&self, perform: &Perform, input_paths: &[InputPath]) -> AResult
     {
         perform_run_command(perform, self, input_paths)
     }
@@ -141,11 +141,11 @@ impl Action for RunCommand
 fn perform_run_command(
     perform: &Perform,
     action: &RunCommand,
-    input_paths: &[PathBuf],
+    input_paths: &[InputPath],
 ) -> AResult
 {
     // Unpack the arguments into convenient variables.
-    let Perform{build_log, source_root, scratch} = perform;
+    let Perform{build_log, scratch} = perform;
     let RunCommand{inputs, outputs, program, arguments,
                    environment, timeout, warnings} = action;
 
@@ -162,7 +162,7 @@ fn perform_run_command(
     repair_root_mount(&mut mounts);
     mount_proc(&mut mounts);
     mount_nix_store(&mut mounts);
-    mount_inputs(*source_root, *scratch, inputs, input_paths, &mut mounts)?;
+    mount_inputs(*scratch, inputs, input_paths, &mut mounts)?;
     run_command(*build_log, &scratch_path, program,
                 arguments, environment, *timeout,
                 mounts)?;
@@ -315,27 +315,17 @@ fn mount_nix_store(mounts: &mut Vec<Mount>)
 
 /// Mount every input in the container's `/build` directory.
 fn mount_inputs(
-    source_root: BorrowedFd,
     scratch: BorrowedFd,
     inputs: &[Basename<OsString>],
-    input_paths: &[PathBuf],
+    input_paths: &[InputPath],
     mounts: &mut Vec<Mount>,
 ) -> Result<(), Error>
 {
     debug_assert_eq!(input_paths.len(), inputs.len());
 
-    let source_root_path =
-        resolve_magic(source_root)
-        .map(CString::into_bytes)
-        .map(OsString::from_vec)
-        .map(PathBuf::from)
-        .with_context(|| "Find path to source root")?;
-
     for (input_basename, input_path) in inputs.iter().zip(input_paths) {
-        mount_input(&source_root_path, scratch, input_basename,
-                    input_path, mounts)
-            .with_context(|| format!("Mount input {input_path:?} \
-                                      at {input_basename:?}"))?;
+        mount_input(scratch, input_basename, input_path, mounts)
+            .with_context(|| format!("Mount input at {input_basename:?}"))?;
     }
 
     Ok(())
@@ -343,15 +333,21 @@ fn mount_inputs(
 
 /// Mount an input in the container's `/build` directory.
 fn mount_input(
-    source_root_path: &Path,
     scratch: BorrowedFd,
     input_basename: &Basename<OsString>,
-    input_path: &Path,
+    input_path: &InputPath,
     mounts: &mut Vec<Mount>,
 ) -> anyhow::Result<()>
 {
     // Make the input path absolute so it can be mounted.
-    let input_path = source_root_path.join(input_path);
+    // There is unfortunately no "mountat" system call.
+    let input_path_dir =
+        resolve_magic(input_path.dirfd)
+        .map(CString::into_bytes)
+        .map(OsString::from_vec)
+        .map(PathBuf::from)
+        .with_context(|| "Find path to input path dir")?;
+    let input_path = input_path_dir.join(&input_path.path);
 
     // Make the target relative to the /build directory.
     let target = Path::new("build").join(input_basename.deref());
@@ -732,9 +728,8 @@ mod tests
     /// Call the perform_run_command function and
     /// return the result and the build log file.
     fn call_perform_run_command(
-        source_root: BorrowedFd,
         action: &RunCommand,
-        input_paths: &[PathBuf],
+        input_paths: &[InputPath],
     ) -> (Result<Success, Error>, File)
     {
         let path      = mkdtemp(cstr!(b"/tmp/snowflake-test-XXXXXX")).unwrap();
@@ -743,7 +738,6 @@ mod tests
 
         let perform = Perform{
             build_log: build_log.as_fd(),
-            source_root,
             scratch: scratch.as_fd(),
         };
 
@@ -770,9 +764,12 @@ mod tests
             open("testdata/inputs", O_DIRECTORY | O_PATH, 0)
                 .unwrap();
 
-        let input_paths: Vec<PathBuf> =
+        let input_paths: Vec<InputPath> =
             inputs.iter()
-            .map(|i| i.deref().into())
+            .map(|i| InputPath{
+                dirfd: source_root.as_fd(),
+                path: i.deref().into(),
+            })
             .collect();
 
         let action = RunCommand{
@@ -797,11 +794,7 @@ mod tests
         };
 
         let (result, mut build_log) =
-            call_perform_run_command(
-                source_root.as_fd(),
-                &action,
-                &input_paths,
-            );
+            call_perform_run_command(&action, &input_paths);
 
         assert_matches!(result, Ok(Success{warnings: false, ..}));
         let mut buf = String::new();
@@ -826,9 +819,7 @@ mod tests
             timeout: Duration::from_millis(50),
             warnings: None,
         };
-        let source_root = open("/dev/null", O_PATH, 0).unwrap();
-        let (result, mut build_log) =
-            call_perform_run_command(source_root.as_fd(), &action, &[]);
+        let (result, mut build_log) = call_perform_run_command(&action, &[]);
         assert_matches!(result, Ok(Success{warnings: false, ..}));
         let mut buf = Vec::new();
         build_log.read_to_end(&mut buf).unwrap();
@@ -848,9 +839,7 @@ mod tests
             timeout: Duration::from_millis(50),
             warnings: None,
         };
-        let source_root = open("/dev/null", O_PATH, 0).unwrap();
-        let (result, _) =
-            call_perform_run_command(source_root.as_fd(), &action, &[]);
+        let (result, _) = call_perform_run_command(&action, &[]);
         assert_matches!(result, Err(Error::Timeout(_)));
     }
 
@@ -867,9 +856,7 @@ mod tests
             timeout: Duration::from_millis(50),
             warnings: None,
         };
-        let source_root = open("/dev/null", O_PATH, 0).unwrap();
-        let (result, _) =
-            call_perform_run_command(source_root.as_fd(), &action, &[]);
+        let (result, _) = call_perform_run_command(&action, &[]);
         assert_matches!(result, Err(Error::ExitStatus(_)));
     }
 
@@ -889,9 +876,7 @@ mod tests
             timeout: Duration::from_millis(50),
             warnings: Some(Regex::new("^warning:").unwrap()),
         };
-        let source_root = open("/dev/null", O_PATH, 0).unwrap();
-        let (result, _) =
-            call_perform_run_command(source_root.as_fd(), &action, &[]);
+        let (result, _) = call_perform_run_command(&action, &[]);
         assert_matches!(result, Ok(Success{warnings: true, ..}));
     }
 }
