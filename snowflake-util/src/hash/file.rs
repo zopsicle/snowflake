@@ -4,18 +4,13 @@ use {
         AT_SYMLINK_NOFOLLOW,
         O_DIRECTORY, O_NOFOLLOW, O_RDONLY,
         S_IFDIR, S_IFLNK, S_IFMT, S_IFREG, S_IXUSR,
-        fdopendir,
-        fstatat,
-        openat,
-        readdir,
-        readlinkat,
-        stat,
+        cstr, fdopendir, fstatat, openat, readdir, readlinkat, stat,
     },
     std::{
+        ffi::CStr,
         fs::File,
         io::{self, Write, copy},
-        os::unix::{ffi::OsStrExt, io::{AsFd, BorrowedFd}},
-        path::Path,
+        os::unix::io::{AsFd, BorrowedFd},
     },
 };
 
@@ -47,7 +42,7 @@ use {
 /// and outputs are made read-only before being added to the output cache.
 /// The execute permission bit is ignored for directories
 /// as non-executable directories cannot be hashed.
-pub fn hash_file_at(dirfd: Option<BorrowedFd>, path: impl AsRef<Path>)
+pub fn hash_file_at(dirfd: Option<BorrowedFd>, path: &CStr)
     -> io::Result<Hash>
 {
     hash_file_at_with(dirfd, path, |_| Ok(()))
@@ -60,7 +55,7 @@ pub fn hash_file_at(dirfd: Option<BorrowedFd>, path: impl AsRef<Path>)
 /// this function will call `f` for each of them.
 pub fn hash_file_at_with(
     dirfd: Option<BorrowedFd>,
-    path:  impl AsRef<Path>,
+    path:  &CStr,
     mut f: impl FnMut(&stat) -> io::Result<()>,
 ) -> io::Result<Hash>
 {
@@ -74,7 +69,7 @@ pub fn hash_file_at_with(
 fn write_file_at(
     writer: &mut impl Write,
     dirfd:  Option<BorrowedFd>,
-    path:   &Path,
+    path:   &CStr,
     f:      &mut dyn FnMut(&stat) -> io::Result<()>
 ) -> io::Result<()>
 {
@@ -97,7 +92,7 @@ const FILE_TYPE_LNK: u8 = 2;
 fn write_reg_at(
     writer:  &mut impl Write,
     dirfd:   Option<BorrowedFd>,
-    path:    &Path,
+    path:    &CStr,
     statbuf: &stat,
 ) -> io::Result<()>
 {
@@ -123,7 +118,7 @@ fn write_reg_at(
 fn write_dir_at(
     writer: &mut impl Write,
     dirfd:  Option<BorrowedFd>,
-    path:   &Path,
+    path:   &CStr,
     f:      &mut dyn FnMut(&stat) -> io::Result<()>
 ) -> io::Result<()>
 {
@@ -138,7 +133,8 @@ fn write_dir_at(
     let mut entries = Vec::new();
     while let Some(dirent) = readdir(&mut stream)? {
         let d_name = dirent.d_name;
-        if d_name != Path::new(".") && d_name != Path::new("..") {
+        if d_name.as_ref() != cstr!(b".") &&
+            d_name.as_ref() != cstr!(b"..") {
             entries.push(d_name);
         }
     }
@@ -151,8 +147,7 @@ fn write_dir_at(
     for entry in entries {
 
         // Write entry name.
-        writer.write_all(entry.as_os_str().as_bytes())?;
-        writer.write_all(&[0])?;
+        writer.write_all(entry.as_bytes_with_nul())?;
 
         // Recursively write entry.
         write_file_at(writer, Some(dir.as_fd()), &entry, f)?;
@@ -166,9 +161,9 @@ fn write_dir_at(
 
 /// Write a symbolic link.
 fn write_lnk_at(
-    writer:  &mut impl Write,
-    dirfd:   Option<BorrowedFd>,
-    path:    &Path,
+    writer: &mut impl Write,
+    dirfd:  Option<BorrowedFd>,
+    path:   &CStr,
 ) -> io::Result<()>
 {
     // Write symbolic link metadata.
@@ -218,7 +213,7 @@ mod tests
 
         let expected_hash = Blake3::new().update(expected).finalize();
 
-        let path = Path::new("testdata/hash_file_at");
+        let path = cstr!(b"testdata/hash_file_at");
 
         let mut buf = Vec::new();
         write_file_at(&mut buf, None, path, &mut |_| Ok(())).unwrap();

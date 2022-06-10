@@ -1,11 +1,6 @@
 //! Basenames of pathnames.
 
-// TODO: Move this to its own crate.
-
-use {
-    std::{ffi::OsStr, fmt, ops::Deref, os::unix::ffi::OsStrExt},
-    thiserror::Error,
-};
+use {std::{ffi::CStr, fmt, ops::Deref}, thiserror::Error};
 
 /// Basename of a pathname.
 #[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -25,7 +20,7 @@ pub struct Basename<T>
 pub struct BasenameError;
 
 impl<T> Basename<T>
-    where T: AsRef<OsStr>
+    where T: AsRef<CStr>
 {
     /// Create a basename from a string.
     ///
@@ -34,7 +29,7 @@ impl<T> Basename<T>
     /// or contains `/` or a nul.
     pub fn new(inner: T) -> Result<Self, BasenameError>
     {
-        let bytes = inner.as_ref().as_bytes();
+        let bytes = inner.as_ref().to_bytes();
 
         if matches!(bytes, b"" | b"." | b"..") {
             return Err(BasenameError);

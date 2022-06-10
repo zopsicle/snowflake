@@ -1,6 +1,7 @@
-#![feature(type_ascription)]
+#![feature(concat_bytes)]
 
 use {
+    os_ext::cstring,
     regex::bytes::Regex,
     snowflake_actions::*,
     snowflake_core::{action::*, label::*},
@@ -38,13 +39,13 @@ fn main()
                 (
                     Box::new(RunCommand{
                         inputs: vec![
-                            Basename::new("a".into()).unwrap(),
-                            Basename::new("b".into()).unwrap(),
+                            Basename::new(cstring!(b"a")).unwrap(),
+                            Basename::new(cstring!(b"b")).unwrap(),
                         ],
                         outputs: Outputs::Outputs(
-                            vec![Basename::new("o".into()).unwrap()],
+                            vec![Basename::new(cstring!(b"o")).unwrap()],
                         ),
-                        program: "/run/current-system/sw/bin/sleep".into(),
+                        program: cstring!(b"/run/current-system/sw/bin/sleep"),
                         arguments: vec![],
                         environment: vec![],
                         timeout: Duration::from_secs(60),
@@ -61,13 +62,13 @@ fn main()
                 (
                     Box::new(RunCommand{
                         inputs: vec![
-                            Basename::new("c".into()).unwrap(),
-                            Basename::new("d".into()).unwrap(),
+                            Basename::new(cstring!(b"c")).unwrap(),
+                            Basename::new(cstring!(b"d")).unwrap(),
                         ],
                         outputs: Outputs::Outputs(
-                            vec![Basename::new("o".into()).unwrap()],
+                            vec![Basename::new(cstring!(b"o")).unwrap()],
                         ),
-                        program: "/run/current-system/sw/bin/sleep".into(),
+                        program: cstring!(b"/run/current-system/sw/bin/sleep"),
                         arguments: vec![],
                         environment: vec![],
                         timeout: Duration::from_secs(60),
@@ -84,12 +85,12 @@ fn main()
                 (
                     Box::new(RunCommand{
                         inputs: vec![
-                            Basename::new("e".into()).unwrap(),
+                            Basename::new(cstring!(b"e")).unwrap(),
                         ],
                         outputs: Outputs::Outputs(
-                            vec![Basename::new("o".into()).unwrap()],
+                            vec![Basename::new(cstring!(b"o")).unwrap()],
                         ),
-                        program: "/run/current-system/sw/bin/sleep".into(),
+                        program: cstring!(b"/run/current-system/sw/bin/sleep"),
                         arguments: vec![],
                         environment: vec![],
                         timeout: Duration::from_secs(60),
@@ -105,12 +106,12 @@ fn main()
                 (
                     Box::new(RunCommand{
                         inputs: vec![
-                            Basename::new("f".into()).unwrap(),
+                            Basename::new(cstring!(b"f")).unwrap(),
                         ],
                         outputs: Outputs::Outputs(
                             [].into_iter().collect(),
                         ),
-                        program: "/run/current-system/sw/bin/sleep".into(),
+                        program: cstring!(b"/run/current-system/sw/bin/sleep"),
                         arguments: vec![],
                         environment: vec![],
                         timeout: Duration::from_secs(60),

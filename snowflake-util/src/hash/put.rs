@@ -1,7 +1,4 @@
-use {
-    super::{Blake3, Hash},
-    std::{ffi::{CStr, OsStr}, os::unix::ffi::OsStrExt, path::Path},
-};
+use {super::{Blake3, Hash}, std::ffi::CStr};
 
 /// Convenient methods for writing values.
 ///
@@ -55,16 +52,6 @@ impl Blake3
     pub fn put_cstr(&mut self, value: &CStr) -> &mut Self
     {
         self.update(value.to_bytes_with_nul())
-    }
-
-    pub fn put_os_str(&mut self, value: &OsStr) -> &mut Self
-    {
-        self.put_bytes(value.as_bytes())
-    }
-
-    pub fn put_path(&mut self, value: &Path) -> &mut Self
-    {
-        self.put_os_str(value.as_os_str())
     }
 
     pub fn put_slice<F, T>(&mut self, value: &[T], mut f: F) -> &mut Self

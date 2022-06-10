@@ -1,10 +1,9 @@
 //! Working with C strings.
 
 use std::{
-    borrow::Cow,
-    ffi::{CStr, CString, NulError},
+    ffi::{CStr, CString, OsStr},
     os::unix::ffi::{OsStrExt, OsStringExt},
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 /// Convenient macro for creating a literal C string.
@@ -22,92 +21,44 @@ macro_rules! cstr
     };
 }
 
+/// Like [`cstr`], but convert the string into [`CString`].
+#[macro_export]
+macro_rules! cstring
+{
+    ($lit:literal) => {
+        ::std::ffi::CString::from($crate::cstr!($lit))
+    };
+}
+
 /// Like [`cstr`], but wrap the string in [`Cow::Borrowed`].
+///
+/// [`Cow::Borrowed`]: `std::borrow::Cow::Borrowed`
 #[macro_export]
 macro_rules! cstr_cow
 {
     ($lit:literal) => {
-        ::std::borrow::Cow::Borrowed(cstr!($lit))
+        ::std::borrow::Cow::Borrowed($crate::cstr!($lit))
     };
 }
 
-/// Trait for conversion into C strings.
-pub trait IntoCStr<'a>
+/// Extra methods for [`CStr`].
+pub trait CStrExt
 {
-    /// Convert the string into a C string.
-    ///
-    /// The terminating nul will be added by this method.
-    fn into_cstr(self) -> Result<Cow<'a, CStr>, NulError>;
+    /// Join two paths like [`Path::join`][`std::path::Path::join`].
+    fn join(&self, rhs: &CStr) -> CString;
 }
 
-impl<'a> IntoCStr<'a> for &'a CStr
+impl CStrExt for CStr
 {
-    fn into_cstr(self) -> Result<Cow<'a, CStr>, NulError>
+    fn join(&self, rhs: &CStr) -> CString
     {
-        Ok(Cow::Borrowed(self))
-    }
-}
+        let self_path = Path::new(OsStr::from_bytes(self.to_bytes()));
+        let rhs_path = Path::new(OsStr::from_bytes(rhs.to_bytes()));
+        let joined = self_path.join(rhs_path);
+        let bytes = joined.into_os_string().into_vec();
 
-impl<'a> IntoCStr<'a> for CString
-{
-    fn into_cstr(self) -> Result<Cow<'a, CStr>, NulError>
-    {
-        Ok(Cow::Owned(self))
+        // SAFETY: Path::join does not insert NULs that weren't already there.
+        unsafe { CString::from_vec_unchecked(bytes) }
     }
-}
 
-impl<'a> IntoCStr<'a> for &'a CString
-{
-    fn into_cstr(self) -> Result<Cow<'a, CStr>, NulError>
-    {
-        <&CStr>::into_cstr(self)
-    }
-}
-
-impl<'a> IntoCStr<'a> for &str
-{
-    fn into_cstr(self) -> Result<Cow<'a, CStr>, NulError>
-    {
-        CString::new(self).map(Cow::Owned)
-    }
-}
-
-impl<'a> IntoCStr<'a> for String
-{
-    fn into_cstr(self) -> Result<Cow<'a, CStr>, NulError>
-    {
-        CString::new(self).map(Cow::Owned)
-    }
-}
-
-impl<'a> IntoCStr<'a> for &String
-{
-    fn into_cstr(self) -> Result<Cow<'a, CStr>, NulError>
-    {
-        <&str>::into_cstr(self)
-    }
-}
-
-impl<'a> IntoCStr<'a> for &Path
-{
-    fn into_cstr(self) -> Result<Cow<'a, CStr>, NulError>
-    {
-        CString::new(self.as_os_str().as_bytes()).map(Cow::Owned)
-    }
-}
-
-impl<'a> IntoCStr<'a> for PathBuf
-{
-    fn into_cstr(self) -> Result<Cow<'a, CStr>, NulError>
-    {
-        CString::new(self.into_os_string().into_vec()).map(Cow::Owned)
-    }
-}
-
-impl<'a> IntoCStr<'a> for &PathBuf
-{
-    fn into_cstr(self) -> Result<Cow<'a, CStr>, NulError>
-    {
-        <&Path>::into_cstr(self)
-    }
 }

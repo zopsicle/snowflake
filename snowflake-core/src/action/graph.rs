@@ -1,7 +1,7 @@
 use {
     crate::label::{ActionLabel, ActionOutputLabel},
     super::{Action, ActionExt},
-    std::{collections::{HashMap, HashSet}, fmt, path::PathBuf},
+    std::{collections::{HashMap, HashSet}, ffi::CString, fmt},
 };
 
 /// Action graph encoded as an adjacency list.
@@ -28,7 +28,7 @@ pub enum Input
     /// The path is interpreted to be relative to the [source root].
     ///
     /// [source root]: `crate::drive::Context::source_root`
-    StaticFile(PathBuf),
+    StaticFile(CString),
 }
 
 impl Input

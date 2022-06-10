@@ -1,9 +1,8 @@
 use std::{
-    ffi::{CStr, OsString},
+    ffi::{CStr, CString},
     io,
     mem::forget,
-    os::unix::{ffi::OsStringExt, io::{AsRawFd, OwnedFd}},
-    path::PathBuf,
+    os::unix::io::{AsRawFd, OwnedFd},
     ptr::NonNull,
 };
 
@@ -31,7 +30,7 @@ impl Drop for DIR
 #[allow(missing_docs, non_camel_case_types)]
 pub struct dirent
 {
-    pub d_name: PathBuf,
+    pub d_name: CString,
 }
 
 /// Call fdopendir(3) with the given arguments.
@@ -70,8 +69,7 @@ pub fn readdir(dirp: &mut DIR) -> io::Result<Option<dirent>>
 
     // SAFETY: d_name is a NUL-terminated string.
     let d_name = unsafe { CStr::from_ptr((*dirent).d_name.as_ptr()) };
-    let d_name = d_name.to_bytes().to_vec();
-    let d_name = PathBuf::from(OsString::from_vec(d_name));
+    let d_name = d_name.to_owned();
 
     Ok(Some(dirent{d_name}))
 }

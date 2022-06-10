@@ -5,8 +5,8 @@ pub use self::{graph::*, outputs::*};
 use {
     snowflake_util::hash::Hash,
     std::{
+        ffi::CString,
         os::unix::io::BorrowedFd,
-        path::PathBuf,
         process::ExitStatusError,
         time::Duration,
     },
@@ -78,7 +78,7 @@ pub struct Perform<'a>
 pub struct InputPath<'a>
 {
     pub dirfd: BorrowedFd<'a>,
-    pub path: PathBuf,
+    pub path: CString,
 }
 
 /// Result of performing an action.
@@ -100,7 +100,7 @@ pub struct Success
     ///
     /// [scratch directory]: `Perform::scratch`
     /// [output labels]: `crate::label::ActionOutputLabel`
-    pub output_paths: Vec<PathBuf>,
+    pub output_paths: Vec<CString>,
 
     /// Whether warnings were emitted by the action.
     ///

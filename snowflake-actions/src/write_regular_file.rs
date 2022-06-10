@@ -1,12 +1,12 @@
 use {
     anyhow::Context,
-    os_ext::{O_CREAT, O_WRONLY, openat},
+    os_ext::{O_CREAT, O_WRONLY, cstring, openat},
     snowflake_core::action::{
         Action, InputPath, Outputs,
         Perform, Result, Success,
     },
     snowflake_util::hash::{Blake3, Hash},
-    std::{fs::File, io::Write, path::PathBuf},
+    std::{fs::File, io::Write},
 };
 
 /// Action that writes a regular file.
@@ -35,7 +35,7 @@ impl Action for WriteRegularFile
     fn perform(&self, perform: &Perform, input_paths: &[InputPath]) -> Result
     {
         debug_assert_eq!(input_paths.len(), 0);
-        let output_path = PathBuf::from("output");
+        let output_path = cstring!(b"output");
         let flags = O_CREAT | O_WRONLY;
         let mode = if self.executable { 0o755 } else { 0o644 };
         let file = openat(Some(perform.scratch), &output_path, flags, mode)

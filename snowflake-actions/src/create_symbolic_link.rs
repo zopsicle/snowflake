@@ -1,12 +1,12 @@
 use {
     anyhow::Context,
-    os_ext::symlinkat,
+    os_ext::{cstring, symlinkat},
     snowflake_core::action::{
         Action, InputPath, Outputs,
         Perform, Result, Success,
     },
     snowflake_util::hash::{Blake3, Hash},
-    std::{ffi::CString, path::PathBuf},
+    std::ffi::CString,
 };
 
 /// Action that creates a symbolic link.
@@ -31,7 +31,7 @@ impl Action for CreateSymbolicLink
     fn perform(&self, perform: &Perform, input_paths: &[InputPath]) -> Result
     {
         debug_assert_eq!(input_paths.len(), 0);
-        let output_path = PathBuf::from("output");
+        let output_path = cstring!(b"output");
         symlinkat(&self.target, Some(perform.scratch), &output_path)
             .context("Create symbolic link")?;
         Ok(Success{output_paths: vec![output_path], warnings: false})

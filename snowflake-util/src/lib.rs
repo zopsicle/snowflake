@@ -5,6 +5,7 @@
 //! It is advised to use these only when extending or embedding Snowflake.
 
 #![doc(html_logo_url = "/snowflake-manual/_static/logo.svg")]
+#![feature(concat_bytes)]
 #![feature(io_safety)]
 #![warn(missing_docs)]
 

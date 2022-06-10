@@ -7,15 +7,16 @@ use {
         AT_SYMLINK_FOLLOW,
         O_DIRECTORY, O_PATH, O_RDONLY, O_TMPFILE, O_WRONLY,
         cstr, linkat, mkdirat, open, openat,
+        io::magic_link,
     },
     serde::{Deserialize, Serialize},
     snowflake_util::hash::Hash,
     std::{
+        ffi::{CStr, CString},
         fs::File,
         io::{self, BufReader, ErrorKind::{AlreadyExists, NotFound}, Write},
         lazy::SyncOnceCell,
-        os::unix::io::{AsFd, AsRawFd, BorrowedFd, OwnedFd},
-        path::{Path, PathBuf},
+        os::unix::io::{AsFd, BorrowedFd, OwnedFd},
         sync::atomic::{AtomicU32, Ordering::SeqCst},
     },
 };
@@ -23,9 +24,13 @@ use {
 mod cache_output;
 
 // Paths to the different components of the state directory.
-const SCRATCHES_DIR:    &str = "scratches";
-const ACTION_CACHE_DIR: &str = "action-cache";
-const OUTPUT_CACHE_DIR: &str = "output-cache";
+// TODO: Replace with cstr! macro once from_ptr is const.
+const SCRATCHES_DIR: &CStr =
+    unsafe { CStr::from_bytes_with_nul_unchecked(b"scratches\0") };
+const ACTION_CACHE_DIR: &CStr =
+    unsafe { CStr::from_bytes_with_nul_unchecked(b"action-cache\0") };
+const OUTPUT_CACHE_DIR: &CStr =
+    unsafe { CStr::from_bytes_with_nul_unchecked(b"output-cache\0") };
 
 /// Handle to a state directory.
 pub struct State
@@ -74,7 +79,7 @@ impl State
     /// The state directory must already exist.
     /// Components of the state directory are not opened immediately;
     /// they are opened when they are first used.
-    pub fn open(path: &Path) -> io::Result<Self>
+    pub fn open(path: &CStr) -> io::Result<Self>
     {
         let state_dir = open(path, O_DIRECTORY | O_PATH, 0)?;
 
@@ -104,8 +109,8 @@ impl State
     pub fn new_scratch_dir(&self) -> io::Result<OwnedFd>
     {
         let scratches_dir = self.scratches_dir()?;
-        let scratch_dir_id = self.next_scratch.fetch_add(1, SeqCst);
-        let path = PathBuf::from(scratch_dir_id.to_string());
+        let scratch_id = self.next_scratch.fetch_add(1, SeqCst);
+        let path = CString::new(scratch_id.to_string()).unwrap();
         mkdirat(Some(scratches_dir), &path, 0o755)?;
         openat(Some(scratches_dir), &path, O_DIRECTORY | O_PATH, 0)
     }
@@ -115,13 +120,13 @@ impl State
     /// Returns the file descriptor for the scratches directory
     /// and the relative path to the newly created link.
     pub fn new_scratch_link(&self, fd: BorrowedFd)
-        -> io::Result<(BorrowedFd, PathBuf)>
+        -> io::Result<(BorrowedFd, CString)>
     {
         let scratches_dir = self.scratches_dir()?;
-        let scratch_dir_id = self.next_scratch.fetch_add(1, SeqCst);
-        let path = PathBuf::from(scratch_dir_id.to_string());
+        let scratch_id = self.next_scratch.fetch_add(1, SeqCst);
+        let path = CString::new(scratch_id.to_string()).unwrap();
         linkat(
-            None, format!("/proc/self/fd/{}", fd.as_raw_fd()),
+            None, &magic_link(fd),
             Some(scratches_dir), &path,
             AT_SYMLINK_FOLLOW,
         )?;
@@ -154,8 +159,8 @@ impl State
 
         // Create the file in the action cache.
         linkat(
-            None, format!("/proc/self/fd/{}", file.as_raw_fd()),
-            Some(cache), hash.to_string(),
+            None, &magic_link(file.as_fd()),
+            Some(cache), &CString::new(hash.to_string()).unwrap(),
             AT_SYMLINK_FOLLOW,
         ).or_else(ok_if_already_exists)?;
 
@@ -170,7 +175,8 @@ impl State
         -> io::Result<Option<ActionCacheEntry>>
     {
         let cache = self.action_cache_dir()?;
-        match openat(Some(cache), hash.to_string(), O_RDONLY, 0) {
+        let pathname = &CString::new(hash.to_string()).unwrap();
+        match openat(Some(cache), pathname, O_RDONLY, 0) {
             Ok(file) => {
                 let file = File::from(file);
                 let file = BufReader::new(file);
@@ -194,7 +200,7 @@ impl State
     /// and checks that it qualifies for caching.
     /// Then it renames the file so it is in the cache.
     /// If an equivalent file was already cached, the file is not renamed.
-    pub fn cache_output(&self, dirfd: Option<BorrowedFd>, pathname: &Path)
+    pub fn cache_output(&self, dirfd: Option<BorrowedFd>, pathname: &CStr)
         -> Result<Hash, CacheOutputError>
     {
         self.cache_output_impl(dirfd, pathname)
@@ -234,10 +240,10 @@ impl State
     /// this would mean there is a dangling reference somewhere.
     /// The caller should interpret this as a bug and crash.
     pub fn cached_output(&self, hash: Hash)
-        -> io::Result<(BorrowedFd, PathBuf)>
+        -> io::Result<(BorrowedFd, CString)>
     {
         let dirfd = self.output_cache_dir()?;
-        let path = PathBuf::from(hash.to_string());
+        let path = CString::new(hash.to_string()).unwrap();
         Ok((dirfd, path))
     }
 
@@ -245,7 +251,7 @@ impl State
     fn ensure_open_dir_once<'a>(
         &self,
         cell: &'a SyncOnceCell<OwnedFd>,
-        path: &str,
+        path: &CStr,
     ) -> io::Result<BorrowedFd<'a>>
     {
         let owned_fd = cell.get_or_try_init(|| {
@@ -256,6 +262,12 @@ impl State
         })?;
         Ok(owned_fd.as_fd())
     }
+}
+
+fn hash_to_path(hash: &Hash) -> CString
+{
+    CString::new(hash.to_string())
+        .expect("Hash as Display should not write nul")
 }
 
 fn ok_if_already_exists(err: io::Error) -> io::Result<()>
@@ -272,15 +284,19 @@ mod tests
 {
     use {
         super::*,
-        os_ext::{O_CREAT, O_WRONLY, cstr, mkdtemp, readlink},
-        std::{os::unix::{ffi::OsStrExt, io::AsRawFd}},
+        os_ext::{
+            O_CREAT, O_WRONLY,
+            cstr, cstring, mkdtemp, readlink,
+            cstr::CStrExt,
+        },
+        std::{os::unix::io::AsFd},
     };
 
     #[test]
     fn new_scratch_dir()
     {
         // Create state directory.
-        let path = mkdtemp(cstr!(b"/tmp/snowflake-test-XXXXXX")).unwrap();
+        let path = mkdtemp(cstring!(b"/tmp/snowflake-test-XXXXXX")).unwrap();
 
         // Create two scratch directories.
         let state = State::open(&path).unwrap();
@@ -288,19 +304,17 @@ mod tests
         let scratch_dir_1 = state.new_scratch_dir().unwrap();
 
         // Test paths to the scratch directories.
-        let magic_link_0 = format!("/proc/self/fd/{}", scratch_dir_0.as_raw_fd());
-        let magic_link_1 = format!("/proc/self/fd/{}", scratch_dir_1.as_raw_fd());
-        let scratch_dir_path_0 = readlink(magic_link_0).unwrap();
-        let scratch_dir_path_1 = readlink(magic_link_1).unwrap();
-        assert_eq!(scratch_dir_path_0.as_bytes(),
-                   path.join("scratches/0").as_os_str().as_bytes());
-        assert_eq!(scratch_dir_path_1.as_bytes(),
-                   path.join("scratches/1").as_os_str().as_bytes());
+        let magic_link_0 = magic_link(scratch_dir_0.as_fd());
+        let magic_link_1 = magic_link(scratch_dir_1.as_fd());
+        let scratch_dir_path_0 = readlink(&magic_link_0).unwrap();
+        let scratch_dir_path_1 = readlink(&magic_link_1).unwrap();
+        assert_eq!(scratch_dir_path_0, path.join(cstr!(b"scratches/0")));
+        assert_eq!(scratch_dir_path_1, path.join(cstr!(b"scratches/1")));
 
         // Test that scratch directory is writable.
         openat(
             Some(scratch_dir_0.as_fd()),
-            Path::new("build.log"),
+            cstr!(b"build.log"),
             O_CREAT | O_WRONLY,
             0o644,
         ).unwrap();
@@ -310,7 +324,7 @@ mod tests
     fn action_cache()
     {
         // Create state directory.
-        let path = mkdtemp(cstr!(b"/tmp/snowflake-test-XXXXXX")).unwrap();
+        let path = mkdtemp(cstring!(b"/tmp/snowflake-test-XXXXXX")).unwrap();
         let state = State::open(&path).unwrap();
 
         // Prepare action for inserting into action cache.

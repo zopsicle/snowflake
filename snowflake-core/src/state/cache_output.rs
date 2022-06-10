@@ -1,5 +1,5 @@
 use {
-    super::{State, ok_if_already_exists},
+    super::{State, hash_to_path, ok_if_already_exists},
     bitflags::bitflags,
     os_ext::{
         S_IFDIR, S_IFLNK, S_IFMT, S_IFREG, S_ISGID, S_ISUID, S_ISVTX,
@@ -7,7 +7,7 @@ use {
         renameat2, stat,
     },
     snowflake_util::hash::{Hash, hash_file_at_with},
-    std::{fmt, io, os::unix::io::BorrowedFd, path::Path},
+    std::{ffi::CStr, fmt, io, os::unix::io::BorrowedFd},
     thiserror::Error,
 };
 
@@ -21,7 +21,7 @@ impl State
     pub (super) fn cache_output_impl(
         &self,
         dirfd: Option<BorrowedFd>,
-        pathname: &Path,
+        pathname: &CStr,
     ) -> Result<Hash, CacheOutputError>
     {
         // Hash the output and check its properties.
@@ -37,8 +37,8 @@ impl State
         // Move the output to the cache.
         let cache = self.output_cache_dir()?;
         renameat2(
-            dirfd,       pathname,
-            Some(cache), hash.to_string(),
+            dirfd, pathname,
+            Some(cache), &hash_to_path(&hash),
             RENAME_NOREPLACE,
         ).or_else(ok_if_already_exists)?;
 
@@ -170,8 +170,11 @@ mod tests
 {
     use {
         super::*,
-        os_ext::{S_IFIFO, S_ISUID, cstr, linkat, mkdirat, mkdtemp, mknodat},
-        std::{assert_matches::assert_matches, os::unix::io::AsFd},
+        os_ext::{
+            S_IFIFO, S_ISUID,
+            cstr, cstring, linkat, mkdirat, mkdtemp, mknodat,
+        },
+        std::{assert_matches::assert_matches, ffi::CStr, os::unix::io::AsFd},
     };
 
     #[test]
@@ -180,7 +183,7 @@ mod tests
         use {CacheOutputError as Coe, OutputError as Oe};
 
         // Create state directory.
-        let path = mkdtemp(cstr!(b"/tmp/snowflake-test-XXXXXX")).unwrap();
+        let path = mkdtemp(cstring!(b"/tmp/snowflake-test-XXXXXX")).unwrap();
 
         // Create scratch directory.
         let state = State::open(&path).unwrap();
@@ -192,30 +195,30 @@ mod tests
         // [1]: https://github.com/rust-lang/rust/issues/74042
         #[track_caller]
         fn test_case(state: &State, scratch: Option<BorrowedFd>,
-                     path: &str, expected: Oe)
+                     path: &CStr, expected: Oe)
         {
-            let actual = state.cache_output(scratch, Path::new(path));
+            let actual = state.cache_output(scratch, &path);
             assert_matches!(actual, Err(Coe::Output(err)) if err == expected);
         }
 
         // Create a bunch of bad files.
-        mknodat(scratch, "setuid",  S_IFREG | S_ISUID | 0o644, 0).unwrap();
-        mknodat(scratch, "setgid",  S_IFREG | S_ISGID | 0o644, 0).unwrap();
-        mknodat(scratch, "sticky",  S_IFREG | S_ISVTX | 0o644, 0).unwrap();
-        mknodat(scratch, "regperm", S_IFREG |           0o600, 0).unwrap();
-        mkdirat(scratch, "dirperm",                     0o700   ).unwrap();
-        mknodat(scratch, "fifo",    S_IFIFO |           0o644, 0).unwrap();
-        mknodat(scratch, "link1",   S_IFREG |           0o644, 0).unwrap();
-        linkat(scratch, "link1", scratch, "link2", 0).unwrap();
+        mknodat(scratch, cstr!(b"setuid"),  S_IFREG | S_ISUID | 0o644, 0).unwrap();
+        mknodat(scratch, cstr!(b"setgid"),  S_IFREG | S_ISGID | 0o644, 0).unwrap();
+        mknodat(scratch, cstr!(b"sticky"),  S_IFREG | S_ISVTX | 0o644, 0).unwrap();
+        mknodat(scratch, cstr!(b"regperm"), S_IFREG |           0o600, 0).unwrap();
+        mkdirat(scratch, cstr!(b"dirperm"),                     0o700   ).unwrap();
+        mknodat(scratch, cstr!(b"fifo"),    S_IFIFO |           0o644, 0).unwrap();
+        mknodat(scratch, cstr!(b"link1"),   S_IFREG |           0o644, 0).unwrap();
+        linkat(scratch, cstr!(b"link1"), scratch, cstr!(b"link2"), 0).unwrap();
 
         // Test that caching each file reports the correct error.
-        test_case(&state, scratch, "setuid",  Oe::SETUID_BIT);
-        test_case(&state, scratch, "setgid",  Oe::SETGID_BIT);
-        test_case(&state, scratch, "sticky",  Oe::STICKY_BIT);
-        test_case(&state, scratch, "regperm", Oe::BAD_PERMISSIONS);
-        test_case(&state, scratch, "dirperm", Oe::BAD_PERMISSIONS);
-        test_case(&state, scratch, "fifo",    Oe::BAD_FILE_TYPE);
-        test_case(&state, scratch, "link1",   Oe::MULTIPLE_HARD_LINKS);
-        test_case(&state, scratch, "link2",   Oe::MULTIPLE_HARD_LINKS);
+        test_case(&state, scratch, cstr!(b"setuid"),  Oe::SETUID_BIT);
+        test_case(&state, scratch, cstr!(b"setgid"),  Oe::SETGID_BIT);
+        test_case(&state, scratch, cstr!(b"sticky"),  Oe::STICKY_BIT);
+        test_case(&state, scratch, cstr!(b"regperm"), Oe::BAD_PERMISSIONS);
+        test_case(&state, scratch, cstr!(b"dirperm"), Oe::BAD_PERMISSIONS);
+        test_case(&state, scratch, cstr!(b"fifo"),    Oe::BAD_FILE_TYPE);
+        test_case(&state, scratch, cstr!(b"link1"),   Oe::MULTIPLE_HARD_LINKS);
+        test_case(&state, scratch, cstr!(b"link2"),   Oe::MULTIPLE_HARD_LINKS);
     }
 }
