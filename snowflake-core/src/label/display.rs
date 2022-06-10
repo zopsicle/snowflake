@@ -1,44 +1,10 @@
-use {
-    super::*,
-    std::{fmt::{Display, Formatter, Result}, os::unix::ffi::OsStrExt},
-};
-
-impl Display for PackageLabel
-{
-    fn fmt(&self, f: &mut Formatter) -> Result
-    {
-        if self.segments.is_empty() {
-            write!(f, "/")
-        } else {
-            for segment in self.segments.iter() {
-                write!(f, "/{}", segment.as_bytes().escape_ascii())?;
-            }
-            Ok(())
-        }
-    }
-}
-
-impl Display for RuleLabel
-{
-    fn fmt(&self, f: &mut Formatter) -> Result
-    {
-        write!(f, "{}:{}", self.package, self.rule)
-    }
-}
+use {super::*, std::fmt::{Display, Formatter, Result}};
 
 impl Display for ActionLabel
 {
     fn fmt(&self, f: &mut Formatter) -> Result
     {
-        write!(f, "{}#{}", self.rule, self.action)
-    }
-}
-
-impl Display for RuleOutputLabel
-{
-    fn fmt(&self, f: &mut Formatter) -> Result
-    {
-        write!(f, "{}|{}", self.rule, self.output.as_bytes().escape_ascii())
+        write!(f, "#{}", self.action)
     }
 }
 

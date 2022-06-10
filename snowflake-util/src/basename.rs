@@ -8,10 +8,6 @@ use {
 };
 
 /// Basename of a pathname.
-///
-/// Basenames are used at various places in the build system.
-/// They are used in package names, rule output names,
-/// and input and output names of run command actions.
 #[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(transparent)]
 pub struct Basename<T>

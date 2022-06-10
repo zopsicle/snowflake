@@ -2,8 +2,6 @@
 How Snowflake works
 ===================
 
-.. todo:: explain how rules expand to actions
-
 
 .. index::
    single: action
@@ -13,11 +11,10 @@ How Snowflake works
    single: input
    single: output
    single: perform
-   single: rule
    single: static file
 
-Actions and rules
------------------
+Actions
+-------
 
 An action describes how to build some outputs given some inputs.
 For instance, an action could take a source file as an input
@@ -36,10 +33,6 @@ Then, the action is *performed*, which means running its procedure.
 After an action was performed, it is inserted into the action cache,
 and any outputs it produced are inserted into the output cache.
 Only after successful insertion to the caches, an action is considered *built*.
-
-A rule is essentially a macro that expands to a collection of actions.
-As such, the rule system is not fundamental to the workings of Snowflake.
-Rather, it provides a high-level, user-friendly way to describe builds.
 
 
 .. index::
