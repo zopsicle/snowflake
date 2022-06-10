@@ -12,7 +12,9 @@ Snowflake is language-agnostic
 
 Snowflake does not attach special meanings to the contents of source files.
 It can invoke any tool that can be run as a batch command.
-The user can configure how Snowflake invokes those tools using a DSL.
+The user can configure how Snowflake invokes those tools,
+by generating an action graph using a tool of choice
+(typically a general-purpose scripting language).
 
 
 Cache keys are complete

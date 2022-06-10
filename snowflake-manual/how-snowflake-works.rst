@@ -2,6 +2,13 @@
 How Snowflake works
 ===================
 
+If you've used build systems like Make and Ninja before,
+you are familiar with the "``configure && make``" workflow.
+In this workflow, Snowflake is analogous to ``make``.
+That is, Snowflake builds, but does not configure.
+Where Snowflake differs from the aforementioned build tools
+is in how it runs commands and caches intermediate artifacts.
+
 
 .. index::
    single: action
