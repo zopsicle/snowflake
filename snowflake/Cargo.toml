@@ -8,8 +8,6 @@ edition = "2021"
 [dependencies]
 os-ext.path = "../common/os-ext"
 regex.workspace = true
-scope-exit.path = "../common/scope-exit"
-sekka.path = "../sekka"
 snowflake-actions.path = "../snowflake-actions"
 snowflake-core.path = "../snowflake-core"
 snowflake-util.path = "../snowflake-util"

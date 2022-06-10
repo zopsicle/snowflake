@@ -108,17 +108,6 @@ name = "scope-exit"
 version = "0.0.0"
 
 [[package]]
-name = "sekka"
-version = "0.0.0"
-dependencies = [
- "libc",
- "scope-exit",
- "smallvec",
- "thiserror",
- "typed-arena",
-]
-
-[[package]]
 name = "serde"
 version = "1.0.137"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -150,19 +139,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "smallvec"
-version = "1.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2dd574626839106c320a323308629dcb1acfc96e32a8cba364ddc61ac23ee83"
-
-[[package]]
 name = "snowflake"
 version = "0.0.0"
 dependencies = [
  "os-ext",
  "regex",
- "scope-exit",
- "sekka",
  "snowflake-actions",
  "snowflake-core",
  "snowflake-util",
@@ -234,12 +215,6 @@ dependencies = [
  "quote",
  "syn",
 ]
-
-[[package]]
-name = "typed-arena"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0685c84d5d54d1c26f7d3eb96cd41550adb97baed141a761cf335d3d33bcd0ae"
 
 [[package]]
 name = "unicode-ident"
