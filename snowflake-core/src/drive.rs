@@ -203,9 +203,11 @@ fn build_inner<'a>(
 
     let result = action.perform(&perform, &input_paths);
 
+    let build_log = context.state.cache_build_log(build_log)?;
+    // TODO: Include build log hash in outcome?
+
     match result {
         Ok(success) => {
-            let build_log = context.state.cache_build_log(build_log)?;
             let outputs =
                 (0 .. action.outputs().get())
                 .map(|i| success.output_paths.get(i).expect("foo"))

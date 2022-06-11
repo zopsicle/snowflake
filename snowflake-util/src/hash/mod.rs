@@ -21,7 +21,7 @@ mod put;
 /// assert_eq!(hash.to_string(), "ede5c0b10f2ec4979c69b52f61e42ff5\
 ///                               b413519ce09be0f14d098dcfe5f6f98d");
 /// ```
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Deserialize, Eq, PartialEq, Serialize)]
 pub struct Hash(pub [u8; 32]);
 
 impl fmt::Display for Hash
@@ -32,5 +32,13 @@ impl fmt::Display for Hash
             write!(f, "{:02x}", byte)?;
         }
         Ok(())
+    }
+}
+
+impl fmt::Debug for Hash
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "\"{self}\"")
     }
 }

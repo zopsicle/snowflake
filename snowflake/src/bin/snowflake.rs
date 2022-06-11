@@ -18,14 +18,18 @@ use {
 
 fn main()
 {
+    let gnum4_path = CString::new(concat!("PATH=", env!("SNOWFLAKE_GNUM4"), "/bin")).unwrap();
     let minify = CString::new(concat!(env!("SNOWFLAKE_MINIFY"), "/bin/minify")).unwrap();
     let sassc = CString::new(concat!(env!("SNOWFLAKE_SASSC"), "/bin/sassc")).unwrap();
 
     let action_sassc = ActionLabel{action: 0};
     let action_sassc_output_css = ActionOutputLabel{action: action_sassc.clone(), output: 0};
 
-    let action_minify = ActionLabel{action: 1};
-    let action_minify_output_min_css = ActionOutputLabel{action: action_minify.clone(), output: 0};
+    let action_inject_css = ActionLabel{action: 1};
+    let action_inject_css_output_html = ActionOutputLabel{action: action_inject_css.clone(), output: 0};
+
+    let action_minify = ActionLabel{action: 2};
+    let action_minify_output_min_html = ActionOutputLabel{action: action_minify.clone(), output: 0};
 
     let mut action_graph = ActionGraph{
         actions: [
@@ -55,33 +59,62 @@ fn main()
                 ),
             ),
             (
+                action_inject_css,
+                (
+                    Box::new(RunCommand{
+                        inputs: vec![
+                            Basename::new(cstring!(b"index.html.m4")).unwrap(),
+                            Basename::new(cstring!(b"stylesheet.css")).unwrap(),
+                        ],
+                        outputs: Outputs::Outputs(vec![
+                            Basename::new(cstring!(b"index.html")).unwrap(),
+                        ]),
+                        program: cstring!(b"/bin/sh"),
+                        arguments: vec![
+                            cstring!(b"bash"),
+                            cstring!(b"-c"),
+                            cstring!(br#"exec m4 -P index.html.m4 > index.html"#),
+                        ],
+                        environment: vec![
+                            gnum4_path,
+                        ],
+                        timeout: Duration::from_secs(1),
+                        warnings: None,
+                    }) as Box<dyn Action>,
+                    vec![
+                        Input::StaticFile(cstring!(b"snowflake-website/index.html")),
+                        Input::Dependency(action_sassc_output_css.clone()),
+                    ],
+                ),
+            ),
+            (
                 action_minify,
                 (
                     Box::new(RunCommand{
                         inputs: vec![
-                            Basename::new(cstring!(b"stylesheet.css")).unwrap(),
+                            Basename::new(cstring!(b"index.html")).unwrap(),
                         ],
                         outputs: Outputs::Outputs(vec![
-                            Basename::new(cstring!(b"stylesheet.min.css")).unwrap(),
+                            Basename::new(cstring!(b"index.min.html")).unwrap(),
                         ]),
                         program: minify,
                         arguments: vec![
                             cstring!(b"minify"),
                             cstring!(b"--output"),
-                            cstring!(b"stylesheet.min.css"),
-                            cstring!(b"stylesheet.css"),
+                            cstring!(b"index.min.html"),
+                            cstring!(b"index.html"),
                         ],
                         environment: vec![],
                         timeout: Duration::from_secs(1),
                         warnings: None,
                     }) as Box<dyn Action>,
                     vec![
-                        Input::Dependency(action_sassc_output_css),
+                        Input::Dependency(action_inject_css_output_html),
                     ],
                 ),
             ),
         ].into_iter().collect(),
-        artifacts: [action_minify_output_min_css].into_iter().collect(),
+        artifacts: [action_minify_output_min_html].into_iter().collect(),
     };
 
     action_graph.prune();
@@ -96,5 +129,5 @@ fn main()
     let result = drive(&context, &action_graph);
 
     println!("{}", action_graph);
-    println!("{:?}", result);
+    println!("{:#?}", result);
 }
