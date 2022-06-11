@@ -63,7 +63,10 @@ pub enum Outcome<'a>
     },
 
     /// Performing the action failed because of an error.
-    Failed{error: BuildError},
+    Failed{
+        build_log: Option<Hash>,
+        error: BuildError,
+    },
 
     /// The action was skipped because a transitive dependency failed.
     Skipped{failed_dependency: &'a ActionLabel},
@@ -137,7 +140,7 @@ fn build<'a>(
 {
     match build_inner(context, outcomes, action, inputs) {
         Ok(outcome) => outcome,
-        Err(error) => Outcome::Failed{error},
+        Err(error) => Outcome::Failed{build_log: None, error},
     }
 }
 
@@ -204,7 +207,6 @@ fn build_inner<'a>(
     let result = action.perform(&perform, &input_paths);
 
     let build_log = context.state.cache_build_log(build_log)?;
-    // TODO: Include build log hash in outcome?
 
     match result {
         Ok(success) => {
@@ -219,6 +221,6 @@ fn build_inner<'a>(
             Ok(Outcome::Success{cache_entry, cache_hit: false})
         },
         Err(error) =>
-            Ok(Outcome::Failed{error: error.into()}),
+            Ok(Outcome::Failed{build_log: Some(build_log), error: error.into()}),
     }
 }
