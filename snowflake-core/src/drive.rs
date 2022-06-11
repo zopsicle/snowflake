@@ -1,16 +1,16 @@
 use {
     crate::{
-        action::{self, Action, ActionGraph, Input, InputPath, Perform},
+        action::{self, Action, ActionGraph, Input, InputPath, Perform, Success},
         label::ActionLabel,
         state::{ActionCacheEntry, CacheOutputError, State},
     },
+    anyhow::{Context as _},
     os_ext::{O_RDWR, O_TMPFILE, cstr, openat},
     snowflake_util::hash::{Hash, hash_file_at},
     std::{
         borrow::Cow,
         collections::HashMap,
-        io,
-        os::unix::io::{AsFd, BorrowedFd},
+        os::unix::io::{AsFd, BorrowedFd, OwnedFd},
     },
     thiserror::Error,
 };
@@ -37,13 +37,13 @@ pub enum DriveError
 pub enum BuildError
 {
     #[error("{0}")]
-    Io(#[from] io::Error),
-
-    #[error("{0}")]
     Perform(#[from] action::Error),
 
     #[error("{0}")]
     CacheOutput(#[from] CacheOutputError),
+
+    #[error("Unexpected error: {0}")]
+    Unexpected(#[from] anyhow::Error),
 }
 
 /// The outcome of an attempt at building an action.
@@ -151,8 +151,36 @@ fn build_inner<'a>(
     inputs:   &'a [Input],
 ) -> Result<Outcome<'a>, BuildError>
 {
-    let mut input_paths: Vec<InputPath> =
-        Vec::with_capacity(inputs.len());
+    let input_paths = collect_input_paths(context, outcomes, inputs)?;
+    let input_paths = match input_paths {
+        Ok(input_paths) => input_paths,
+        Err(fd) => return Ok(Outcome::Skipped{failed_dependency: fd}),
+    };
+    let action_hash = compute_action_hash(action, &input_paths)?;
+    if let Some(cache_entry) = check_action_cache(context, action_hash)? {
+        return Ok(Outcome::Success{cache_entry, cache_hit: true});
+    }
+    let build_log = create_build_log(context)?;
+    let scratch = context.state.new_scratch_dir()                               .with_context(|| "Create scratch directory")?;
+    let result = perform_action(action, &input_paths, &build_log, &scratch);
+    let build_log = context.state.cache_build_log(build_log)                    .with_context(|| "Move build log to output cache")?;
+    match result {
+        Ok(success) => cache_action(context, action, action_hash, build_log, &scratch, &success),
+        Err(error) => Ok(Outcome::Failed{build_log: Some(build_log), error: error.into()}),
+    }
+}
+
+/// Compute the path of each input.
+///
+/// If inputs are missing due to unfortunate outcomes of dependencies,
+/// this function returns early with the dependency that failed.
+fn collect_input_paths<'a, 'b>(
+    context:  &'a Context,
+    outcomes: &HashMap<&ActionLabel, Outcome<'b>>,
+    inputs:   &'b [Input],
+) -> Result<Result<Vec<InputPath<'a, 'b>>, &'b ActionLabel>, BuildError>
+{
+    let mut input_paths = Vec::with_capacity(inputs.len());
 
     for input in inputs {
         match input {
@@ -163,16 +191,14 @@ fn build_inner<'a>(
                     Outcome::Success{cache_entry, ..} => {
                         let hash = cache_entry.outputs.get(label.output)
                             .expect("Action refers to non-existent output");
-                        let (dirfd, path) = context.state.cached_output(*hash)?;
+                        let (dirfd, path) = context.state.cached_output(*hash)  .with_context(|| "Retrieve dependency from output cache")?;
                         let path = Cow::Owned(path);
                         input_paths.push(InputPath{dirfd, path});
                     },
-                    Outcome::Failed{..} => {
-                        let failed_dependency = &label.action;
-                        return Ok(Outcome::Skipped{failed_dependency});
-                    },
+                    Outcome::Failed{..} =>
+                        return Ok(Err(&label.action)),
                     Outcome::Skipped{failed_dependency} =>
-                        return Ok(Outcome::Skipped{failed_dependency}),
+                        return Ok(Err(failed_dependency)),
                 }
             },
             Input::StaticFile(path) => {
@@ -183,44 +209,95 @@ fn build_inner<'a>(
         }
     }
 
-    let input_hashes: Vec<Hash> =
-        input_paths.iter()
-        .map(|InputPath{dirfd, path}| hash_file_at(Some(*dirfd), path))
-        .collect::<Result<_, _>>()?;
+    Ok(Ok(input_paths))
+}
 
-    let action_hash = action.hash(&input_hashes);
+/// Compute the hash of an action, which is its key into the action cache.
+fn compute_action_hash(action: &dyn Action, input_paths: &[InputPath])
+    -> Result<Hash, BuildError>
+{
+    let mut input_hashes = Vec::with_capacity(input_paths.len());
 
-    if let Some(cache_entry) = context.state.cached_action(action_hash)? {
-        return Ok(Outcome::Success{cache_entry, cache_hit: true});
+    for InputPath{dirfd, path} in input_paths {
+        let hash = hash_file_at(Some(*dirfd), path)                             .with_context(|| "Compute hash of input")?;
+        input_hashes.push(hash);
     }
 
-    let dir = context.state.as_fd();
-    let build_log = openat(Some(dir), cstr!(b"."), O_TMPFILE | O_RDWR, 0o644)?;
+    Ok(action.hash(&input_hashes))
+}
 
-    let scratch = context.state.new_scratch_dir()?;
+/// Look up the action in the action cache, in order to skip the build.
+fn check_action_cache(context: &Context, action_hash: Hash)
+    -> Result<Option<ActionCacheEntry>, BuildError>
+{
+    let cache_entry = context.state.cached_action(action_hash)                  .with_context(|| "Look up action in action cache")?;
+    Ok(cache_entry)
+}
 
+/// Create the file that will store the build log.
+fn create_build_log(context: &Context) -> Result<OwnedFd, BuildError>
+{
+    let state_dir = context.state.as_fd();
+    let file = openat(Some(state_dir), cstr!(b"."), O_TMPFILE | O_RDWR, 0o644)  .with_context(|| "Create build log")?;
+    Ok(file)
+}
+
+/// Perform the action.
+fn perform_action(
+    action: &dyn Action,
+    input_paths: &[InputPath],
+    build_log: &OwnedFd,
+    scratch: &OwnedFd,
+) -> action::Result
+{
     let perform = Perform{
         build_log: build_log.as_fd(),
         scratch: scratch.as_fd(),
     };
+    action.perform(&perform, input_paths)
+}
 
-    let result = action.perform(&perform, &input_paths);
+/// Insert the outputs and action into the caches.
+fn cache_action<'a>(
+    context:     &Context,
+    action:      &dyn Action,
+    action_hash: Hash,
+    build_log:   Hash,
+    scratch:     &OwnedFd,
+    success:     &Success,
+) -> Result<Outcome<'a>, BuildError>
+{
+    let outputs = cache_outputs(context, action, scratch, success)?;
+    let warnings = success.warnings;
+    let cache_entry = ActionCacheEntry{build_log, outputs, warnings};
+    context.state.cache_action(action_hash, &cache_entry)                       .with_context(|| "Insert action into action cache")?;
+    Ok(Outcome::Success{cache_entry, cache_hit: false})
+}
 
-    let build_log = context.state.cache_build_log(build_log)?;
+/// Move every output to the output cache and return their hashes.
+fn cache_outputs(
+    context: &Context,
+    action:  &dyn Action,
+    scratch: &OwnedFd,
+    success: &Success,
+) -> Result<Vec<Hash>, BuildError>
+{
+    let scratch = scratch.as_fd();
+    let count = action.outputs().get();
 
-    match result {
-        Ok(success) => {
-            let outputs =
-                (0 .. action.outputs().get())
-                .map(|i| success.output_paths.get(i).expect("foo"))
-                .map(|p| context.state.cache_output(Some(scratch.as_fd()), p))
-                .collect::<Result<_, _>>()?;
-            let warnings = success.warnings;
-            let cache_entry = ActionCacheEntry{build_log, outputs, warnings};
-            context.state.cache_action(action_hash, &cache_entry)?;
-            Ok(Outcome::Success{cache_entry, cache_hit: false})
-        },
-        Err(error) =>
-            Ok(Outcome::Failed{build_log: Some(build_log), error: error.into()}),
+    // Can only be triggered by a fauly implementation of Action::perform.
+    // So there is no need to return a user-facing error for this.
+    assert_eq!(success.output_paths.len(), count,
+        "Action must produce as many outputs as declared");
+
+    let mut output_hashes = Vec::with_capacity(count);
+
+    for output_path in &success.output_paths {
+        // Outputs are placed by the action in the scratch directory.
+        // And the output path is relative to the scratch directory.
+        let hash = context.state.cache_output(Some(scratch), output_path)?;
+        output_hashes.push(hash);
     }
+
+    Ok(output_hashes)
 }

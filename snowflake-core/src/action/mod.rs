@@ -76,10 +76,10 @@ pub struct Perform<'a>
 
 /// Path to an input and the directory to which it is relative.
 #[allow(missing_docs)]
-pub struct InputPath<'a>
+pub struct InputPath<'a, 'b>
 {
     pub dirfd: BorrowedFd<'a>,
-    pub path: Cow<'a, CStr>,
+    pub path: Cow<'b, CStr>,
 }
 
 /// Result of performing an action.
