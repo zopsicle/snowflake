@@ -7,7 +7,7 @@ mod display;
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct ActionLabel
 {
-    pub action: u32,
+    pub action: usize,
 }
 
 /// Identifies an output of an action.
@@ -16,5 +16,5 @@ pub struct ActionLabel
 pub struct ActionOutputLabel
 {
     pub action: ActionLabel,
-    pub output: u32,
+    pub output: usize,
 }

@@ -5,7 +5,8 @@ pub use self::{graph::*, outputs::*};
 use {
     snowflake_util::hash::Hash,
     std::{
-        ffi::CString,
+        borrow::Cow,
+        ffi::{CStr, CString},
         os::unix::io::BorrowedFd,
         process::ExitStatusError,
         time::Duration,
@@ -78,7 +79,7 @@ pub struct Perform<'a>
 pub struct InputPath<'a>
 {
     pub dirfd: BorrowedFd<'a>,
-    pub path: CString,
+    pub path: Cow<'a, CStr>,
 }
 
 /// Result of performing an action.

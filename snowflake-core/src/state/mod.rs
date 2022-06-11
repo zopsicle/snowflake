@@ -213,15 +213,15 @@ impl State
     /// This method first creates a scratch link, then moves it to the cache.
     /// This method takes ownership of and closes the build log,
     /// because it must not be modified after adding it to the cache.
-    pub fn cache_build_log(state: &State, build_log: OwnedFd)
+    pub fn cache_build_log(&self, build_log: OwnedFd)
         -> io::Result<Hash>
     {
         let (scratches_dir, build_log_path) =
-            state.new_scratch_link(build_log.as_fd())?;
+            self.new_scratch_link(build_log.as_fd())?;
 
         drop(build_log);
 
-        match state.cache_output(Some(scratches_dir), &build_log_path) {
+        match self.cache_output(Some(scratches_dir), &build_log_path) {
             Ok(hash) => Ok(hash),
             Err(CacheOutputError::Io(err)) => Err(err),
             Err(CacheOutputError::Output(err)) =>
@@ -261,6 +261,14 @@ impl State
             openat(dirfd, path, O_DIRECTORY | O_PATH, 0)
         })?;
         Ok(owned_fd.as_fd())
+    }
+}
+
+impl AsFd for State
+{
+    fn as_fd(&self) -> BorrowedFd
+    {
+        self.state_dir.as_fd()
     }
 }
 

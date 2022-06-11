@@ -780,7 +780,7 @@ mod tests
             inputs.iter()
             .map(|i| InputPath{
                 dirfd: source_root.as_fd(),
-                path: i.deref().clone(),
+                path: Cow::Owned(i.deref().to_owned()),
             })
             .collect();
 

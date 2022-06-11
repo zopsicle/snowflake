@@ -50,3 +50,15 @@ impl<T> Outputs<T>
         }
     }
 }
+
+impl<T> Outputs<T>
+    where T: Default
+{
+    pub fn get(self) -> T
+    {
+        match self {
+            Self::Outputs(outputs) => outputs,
+            Self::Lint => T::default(),
+        }
+    }
+}
