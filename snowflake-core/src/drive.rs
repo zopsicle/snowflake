@@ -1,3 +1,5 @@
+//! The driver builds a collection of actions.
+
 use {
     crate::{
         action::{self, Action, ActionGraph, Input, InputPath, Perform, Success},
@@ -15,12 +17,18 @@ use {
     thiserror::Error,
 };
 
+/// Parameters passed to the driver.
 pub struct Context<'a>
 {
+    /// The state directory to use.
     pub state: &'a State,
+
+    /// The directory that static file inputs are relative to.
     pub source_root: BorrowedFd<'a>,
 }
 
+/// Error that occurs whilst building a collection of actions.
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum DriveError
 {
@@ -33,6 +41,8 @@ pub enum DriveError
     DanglingDependency,
 }
 
+/// Error that occurs whilst building an action.
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum BuildError
 {

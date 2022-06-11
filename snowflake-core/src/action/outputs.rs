@@ -54,6 +54,7 @@ impl<T> Outputs<T>
 impl<T> Outputs<T>
     where T: Default
 {
+    /// Get the outputs as a plain value.
     pub fn get(self) -> T
     {
         match self {

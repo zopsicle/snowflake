@@ -384,16 +384,10 @@ fn mount_input(
 /// Compute the scratch-relative path at which each output is created.
 fn output_paths(outputs: &Outputs<Vec<Basename<CString>>>) -> Vec<CString>
 {
-    match outputs {
-        Outputs::Outputs(outputs) => {
-            let build_dir = cstr!(b"build");
-            outputs.iter()
-                .map(|b| build_dir.join(&**b))
-                .collect()
-        },
-        Outputs::Lint =>
-            Vec::new(),
-    }
+    let build_dir = cstr!(b"build");
+    outputs.as_ref()
+        .map(|o| o.iter().map(|b| build_dir.join(&**b)).collect())
+        .get()
 }
 
 /// Look for warnings in the build log.

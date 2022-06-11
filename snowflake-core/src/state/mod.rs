@@ -138,7 +138,6 @@ impl State
         -> io::Result<(BorrowedFd, CString)>
     {
         let scratches_dir = self.scratches_dir()?;
-        let scratch_id = self.next_scratch.fetch_add(1, SeqCst);
         let path = self.fresh_scratch();
         linkat(
             None, &magic_link(fd),
@@ -307,11 +306,7 @@ mod tests
 {
     use {
         super::*,
-        os_ext::{
-            O_CREAT, O_WRONLY,
-            cstr, cstring, mkdtemp, readlink,
-            cstr::CStrExt,
-        },
+        os_ext::{O_CREAT, O_WRONLY, cstr, cstring, mkdtemp, readlink},
         std::{os::unix::io::AsFd},
     };
 
