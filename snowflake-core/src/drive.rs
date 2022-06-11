@@ -53,6 +53,7 @@ pub enum BuildError
 /// if it is performed successfully and all outputs are able to be cached.
 /// This type describes those scenarios, as well as possible failure cases.
 #[allow(missing_docs)]
+#[derive(Debug)]
 pub enum Outcome<'a>
 {
     /// The action was built successfully.

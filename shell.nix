@@ -18,5 +18,7 @@ in
 
         SNOWFLAKE_BASH      = nixpkgs.bash;
         SNOWFLAKE_COREUTILS = nixpkgs.coreutils;
+        SNOWFLAKE_MINIFY    = nixpkgs.minify;
+        SNOWFLAKE_SASSC     = nixpkgs.sassc;
 
     }

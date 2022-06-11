@@ -19,6 +19,7 @@ use {
         os::unix::io::{AsFd, BorrowedFd, OwnedFd},
         sync::atomic::{AtomicU32, Ordering::SeqCst},
     },
+    uuid::Uuid,
 };
 
 mod cache_output;
@@ -42,6 +43,12 @@ pub struct State
     scratches_dir:    SyncOnceCell<OwnedFd>,
     action_cache_dir: SyncOnceCell<OwnedFd>,
     output_cache_dir: SyncOnceCell<OwnedFd>,
+
+    /// Identifies this instance of Snowflake.
+    ///
+    /// If multiple Snowflake instances are running concurrently,
+    /// this prevents them from creating conflicting scratch files.
+    unique_id: Uuid,
 
     /// Name of the next scratch file to create.
     next_scratch: AtomicU32,
@@ -89,6 +96,7 @@ impl State
             action_cache_dir: SyncOnceCell::new(),
             output_cache_dir: SyncOnceCell::new(),
             next_scratch:     AtomicU32::new(0),
+            unique_id:        Uuid::new_v4(),
         };
 
         Ok(this)
@@ -103,14 +111,21 @@ impl State
         self.ensure_open_dir_once(&self.scratches_dir, SCRATCHES_DIR)
     }
 
+    /// Generate a unique name for a scratch file.
+    fn fresh_scratch(&self) -> CString
+    {
+        let local_id = self.next_scratch.fetch_add(1, SeqCst);
+        let name = format!("{}-{}", self.unique_id, local_id);
+        CString::new(name).unwrap()
+    }
+
     /// Create and open a new scratch directory.
     ///
     /// The scratch directory starts out empty.
     pub fn new_scratch_dir(&self) -> io::Result<OwnedFd>
     {
         let scratches_dir = self.scratches_dir()?;
-        let scratch_id = self.next_scratch.fetch_add(1, SeqCst);
-        let path = CString::new(scratch_id.to_string()).unwrap();
+        let path = self.fresh_scratch();
         mkdirat(Some(scratches_dir), &path, 0o755)?;
         openat(Some(scratches_dir), &path, O_DIRECTORY | O_PATH, 0)
     }
@@ -124,7 +139,7 @@ impl State
     {
         let scratches_dir = self.scratches_dir()?;
         let scratch_id = self.next_scratch.fetch_add(1, SeqCst);
-        let path = CString::new(scratch_id.to_string()).unwrap();
+        let path = self.fresh_scratch();
         linkat(
             None, &magic_link(fd),
             Some(scratches_dir), &path,
@@ -316,8 +331,7 @@ mod tests
         let magic_link_1 = magic_link(scratch_dir_1.as_fd());
         let scratch_dir_path_0 = readlink(&magic_link_0).unwrap();
         let scratch_dir_path_1 = readlink(&magic_link_1).unwrap();
-        assert_eq!(scratch_dir_path_0, path.join(cstr!(b"scratches/0")));
-        assert_eq!(scratch_dir_path_1, path.join(cstr!(b"scratches/1")));
+        assert_ne!(scratch_dir_path_0, scratch_dir_path_1);
 
         // Test that scratch directory is writable.
         openat(
