@@ -62,3 +62,32 @@ impl<T> fmt::Debug for Basename<T>
         <T as fmt::Debug>::fmt(self, f)
     }
 }
+
+#[cfg(test)]
+mod tests
+{
+    use {super::*, os_ext::cstr};
+
+    #[test]
+    fn examples()
+    {
+        let examples = [
+            // Valid basenames.
+            (cstr!(b"hello"), true),
+            (cstr!(b"message.txt"), true),
+            (cstr!(b"Hello, world!"), true),
+
+            // Invalid basenames.
+            (cstr!(b""), false),
+            (cstr!(b"."), false),
+            (cstr!(b".."), false),
+            (cstr!(b"/"), false),
+            (cstr!(b"/etc/passwd"), false),
+            (cstr!(b"common/nix/nixpkgs"), false),
+        ];
+
+        for (cstr, valid) in examples {
+            assert!(Basename::new(cstr).is_ok() == valid, "{cstr:?}");
+        }
+    }
+}
