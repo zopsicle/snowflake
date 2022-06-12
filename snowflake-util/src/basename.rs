@@ -16,7 +16,7 @@ pub struct Basename<T>
 ///
 /// See [`Basename::new`] for the restrictions on basenames.
 #[derive(Debug, Error)]
-#[error("Basename is empty, `.`, or `..`, or contains `/` or a nul")]
+#[error("Basename is empty, `.`, or `..`, or contains `/`")]
 pub struct BasenameError;
 
 impl<T> Basename<T>
@@ -25,8 +25,7 @@ impl<T> Basename<T>
     /// Create a basename from a string.
     ///
     /// Returns an error if the basename is invalid.
-    /// A basename is invalid if it is empty, `.`, or `..`,
-    /// or contains `/` or a nul.
+    /// A basename is invalid if it is empty, `.`, or `..`, or contains `/`.
     pub fn new(inner: T) -> Result<Self, BasenameError>
     {
         let bytes = inner.as_ref().to_bytes();
@@ -35,7 +34,7 @@ impl<T> Basename<T>
             return Err(BasenameError);
         }
 
-        if bytes.contains(&b'/') || bytes.contains(&0) {
+        if bytes.contains(&b'/') {
             return Err(BasenameError);
         }
 
