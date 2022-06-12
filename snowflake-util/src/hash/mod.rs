@@ -2,7 +2,7 @@
 
 pub use self::{blake3::*, file::*};
 
-use {serde::{Deserialize, Serialize}, std::fmt};
+use {serde::{Deserialize, Serialize}, std::{fmt, str::from_utf8_unchecked}};
 
 mod blake3;
 mod file;
@@ -28,10 +28,15 @@ impl fmt::Display for Hash
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
     {
-        for byte in self.0 {
-            write!(f, "{:02x}", byte)?;
+        const ALPHABET: &[u8; 16] = b"0123456789abcdef";
+        let mut buf = [0; 64];
+        for (i, &b) in self.0.iter().enumerate() {
+            buf[2 * i + 0] = ALPHABET[b as usize >> 4];
+            buf[2 * i + 1] = ALPHABET[b as usize & 0b1111];
         }
-        Ok(())
+        // SAFETY: We filled the buffer with ASCII characters.
+        let str = unsafe { from_utf8_unchecked(&buf) };
+        write!(f, "{}", str)
     }
 }
 
