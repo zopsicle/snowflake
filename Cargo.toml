@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "common/dstutil",
     "common/os-ext",
     "common/scope-exit",
     "snowflake",
