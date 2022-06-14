@@ -19,7 +19,9 @@ pub mod thin;
 /// Custom dynamically-sized type.
 ///
 /// Consists of a sized head `H` and a dynamically-sized tail `T`.
+/// This type is `repr(C)`, ensuring that the offset of `head` is zero.
 #[allow(missing_docs)]
+#[repr(C)]
 pub struct CustomDst<H, T>
     where T: ?Sized
 {
